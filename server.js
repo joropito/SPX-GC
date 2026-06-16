@@ -619,7 +619,7 @@ app.engine('handlebars', exphbs.engine({
     // Get a correct class for a play button
     playButtonClass(onair) {
       let value = onair || "false";
-      let ONAIR = value.toUpperCase();
+      let ONAIR = String(value).toUpperCase();
       if (ONAIR=="TRUE") {
         return "bg_red";
       } else {
@@ -630,7 +630,7 @@ app.engine('handlebars', exphbs.engine({
     // Get a correct class for a play button
     playButtonText(onair) {
       let value = onair || "false";
-      let ONAIR = value.toUpperCase();
+      let ONAIR = String(value).toUpperCase();
       if (ONAIR=="TRUE") {
         return spx.lang('button.stop');
       } else {
@@ -643,7 +643,7 @@ app.engine('handlebars', exphbs.engine({
     playIconClass(onair) {
       // console.log('Play icon [' + onair + ']');
       let value = onair || "false";
-      let ONAIR = value.toUpperCase();
+      let ONAIR = String(value).toUpperCase();
       if (ONAIR=="TRUE") {
         return "playTrue";
       } else {
