@@ -49,10 +49,7 @@ module.exports = {
         <data id=\"text\" value=\"Donald Trump\"/>
     </componentData>
     */
-
-    logger.debug('CGComponentFactory (for XML data only) - fieldID: ' + fieldID + ', value: ' + value);
-
-    let decodedValue = decodeURIComponent(value) || ""; // changed again. Was += " " and then "null" <:-/
+    let decodedValue = decodeURIComponent(value) || "null"; // changed 05092020. Was += " " <:-/
     return `<componentData id=\\"${fieldID}\\"><data id=\\"text\\" value=\\"${decodedValue}\\"/></componentData>`;
   },
 
@@ -107,21 +104,11 @@ module.exports = {
         if (data.fields) {
           data.fields.forEach((item,index) => {
             logger.debug('  DATA --> ' + item.field + ' : ' + item.value);
-
-            // Fixes "undefined" issue in AMCP playout
-            let value = ""; // default value if null or undefined
-            if (item.value!=null && typeof item.value !== 'undefined') {
-              value = item.value.toString();
-            }
-
             if (DataType == 'xml'){
               // generate data in XML format
-              TEMPLATEDATA += this.CGComponentFactory(item.field, value); 
+              TEMPLATEDATA += this.CGComponentFactory(item.field, item.value);
             } else {
-
-              logger.debug('Generating JSON data for CasparCG, field: ' + item.field + ', value: ' + value);
-
-              TEMPLATEDATA += '\\"' + item.field + '\\":\\"' + value + '\\",';
+              TEMPLATEDATA += '\\"' + item.field + '\\":\\"' + item.value + '\\",';
             }
           });
         }

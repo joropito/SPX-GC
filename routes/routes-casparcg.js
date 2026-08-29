@@ -133,7 +133,6 @@ router.get('/control/:data', (req, res) => {
     let TEMPLATEDATA = "";
     if (data.fields) {
       data.fields.forEach(item => {
-        logger.verbose('Processing field for CCG: ' + item.id + ' with value: ' + item.value);
         TEMPLATEDATA += spx.CGComponentFactory(item.id, item.value)
       });
     }

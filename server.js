@@ -453,7 +453,7 @@ app.engine('handlebars', exphbs.engine({
 
     // populate WebPlayout options for show config templates
     generateWebPlayoutOptions(currentLayer='-') {
-      // console.log('generateWebPlayoutOptions got currentLayer: ' + currentLayer);
+      console.log('generateWebPlayoutOptions got currentLayer: ' + currentLayer);
       currentLayer = spx.max5(currentLayer);
       logger.debug('Generating webplayout options. This selection: '+ currentLayer);
       let html="";
@@ -619,7 +619,7 @@ app.engine('handlebars', exphbs.engine({
     // Get a correct class for a play button
     playButtonClass(onair) {
       let value = onair || "false";
-      let ONAIR = String(value).toUpperCase();
+      let ONAIR = value.toUpperCase();
       if (ONAIR=="TRUE") {
         return "bg_red";
       } else {
@@ -630,7 +630,7 @@ app.engine('handlebars', exphbs.engine({
     // Get a correct class for a play button
     playButtonText(onair) {
       let value = onair || "false";
-      let ONAIR = String(value).toUpperCase();
+      let ONAIR = value.toUpperCase();
       if (ONAIR=="TRUE") {
         return spx.lang('button.stop');
       } else {
@@ -643,7 +643,7 @@ app.engine('handlebars', exphbs.engine({
     playIconClass(onair) {
       // console.log('Play icon [' + onair + ']');
       let value = onair || "false";
-      let ONAIR = String(value).toUpperCase();
+      let ONAIR = value.toUpperCase();
       if (ONAIR=="TRUE") {
         return "playTrue";
       } else {
@@ -883,23 +883,23 @@ var server = app.listen(port, (err) => {
 
   let prompt = 'Open SPX Solo in a browser:';
   let spxUrl = `http://${ipad}:${port}`;
-  let spxLoc = `http://localhost:${port}`;
   let urLeng = spxUrl.length;
-  let loLeng = spxLoc.length;
   let prLeng = prompt.length;
-  let maxWid = Math.max(urLeng, loLeng, prLeng)
-  let minWid = Math.min(urLeng, loLeng, prLeng)
+  let maxWid = Math.max(urLeng, prLeng)
+  let minWid = Math.min(urLeng, prLeng)
   let line1s = '╭' + "─".repeat(maxWid+4) + "╮"
   let line2s = prompt + " ".repeat(maxWid-prLeng)
   let line3s = '╰' + "─".repeat(maxWid+4) + "╯"
-  let spaCnt, spacer1, spacer2
-  spacer1 = " ".repeat(maxWid-urLeng)
-  spacer2 = " ".repeat(maxWid-loLeng)
+  let spaCnt, spacer
+  if (urLeng > prLeng) {
+    spacer = ""
+  } else {
+    spacer = " ".repeat(maxWid-minWid)
+  }
   
   console.log('\n  ' + line1s);
   console.log('  │ ' + line2s + '   │');
-  // console.log('  │ ' + spxUrl + spacer1 + '   │');
-  console.log('  │ ' + spxLoc + spacer2 + '   │');
+  console.log('  │ ' + spxUrl + spacer + '   │');
   console.log('  ' + line3s);
   console.log('');
 
