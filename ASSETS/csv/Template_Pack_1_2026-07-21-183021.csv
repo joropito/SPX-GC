@@ -1,0 +1,22 @@
+
+# SPX Rundown item CSV export. (More info: https://docs.spxgraphics.com/Guides/Tutorials/how+to+use+csv+files)
+
+# description #;Tabla Central Estática
+# playserver #;OVERLAY
+# playchannel #;1
+# playlayer #;3
+# webplayout #;5
+# out #;manual
+# uicolor #;3
+# dataformat #;json
+# relpath #;/softpix/html/Template_Pack_1.4.0/session_table.html
+# onair #;false
+# project #;MyFirstProject
+# rundown #;MyFirstRundown
+
+# FieldUUIDs #;f99;
+# FieldTypes #;filelist;
+# FieldTitls #;Visual theme;
+# Fieldfcalls #;
+
+# ID:auto;./themes/bajau.css;

@@ -1,0 +1,449 @@
+:root {
+  /* =========================================================
+     APNEA BROADCAST - THEME DESIGN TOKENS
+     Diseño premium de alta tecnología para transmisiones de apnea
+     ========================================================= */
+
+  /* Colores Principales */
+  --theme-brandColor: #00e5ff;          /* Cyan Eléctrico / Aqua Neón */
+  --theme-brandColor-dark: #0098b3;     /* Cyan Oscuro */
+  --theme-brandColor-glow: rgba(0, 229, 255, 0.45);
+  --theme-accent-gold: #ffb800;         /* Dorado de Récords / Alertas */
+  --theme-accent-orange: #ff6b00;
+
+  /* Fondos y Estructuras */
+  --theme-dark-color: #08162f;          /* Azul Marino Abisal */
+  --theme-head-color: #040c1e;          /* Azul Oscuro Encabezados */
+  --theme-lite-color: #ffffff;          /* Blanco de Alto Contraste */
+  --theme-secondary: #9ec5eb;           /* Azul Hielo para datos secundarios */
+  --theme-muted: rgba(180, 210, 240, 0.65);
+  
+  /* Gradientes de Superficie (Glassmorphism) */
+  --theme-bg-main: linear-gradient(145deg, rgba(8, 22, 50, 0.94) 0%, rgba(4, 12, 30, 0.97) 100%);
+  --theme-bg-header: linear-gradient(90deg, rgba(0, 229, 255, 0.22) 0%, rgba(8, 24, 56, 0.95) 100%);
+  --theme-bg-row: rgba(14, 32, 68, 0.85);
+  --theme-bg-row-alt: rgba(9, 23, 52, 0.85);
+  --theme-bg-row-active: linear-gradient(90deg, rgba(0, 229, 255, 0.28) 0%, rgba(14, 32, 68, 0.92) 100%);
+
+  /* Bordes, Sombras y Radios */
+  --theme-border-color: rgba(0, 229, 255, 0.45);
+  --theme-border-subtle: rgba(255, 255, 255, 0.12);
+  --theme-corner-radius: 0.6vw;
+  --theme-accent-width: 0.35vw;
+  --theme-shadow: 0 1.2vh 3.5vh rgba(0, 4, 15, 0.75), 0 0 1.5vw rgba(0, 229, 255, 0.15);
+  --theme-glow: 0 0 0.8vw var(--theme-brandColor);
+
+  /* Tarjetas Oficiales de Juzgamiento */
+  --theme-card-white: #ffffff;
+  --theme-card-yellow: #ffd600;
+  --theme-card-red: #ff2d55;
+  --theme-card-dns: #637287;
+
+  /* Tickers y Viewport */
+  --theme-tickerBack: rgba(4, 12, 30, 0.95);
+  --theme-ticker-height: 4.8vh;
+  --theme-viewport-padding-top: 3.5vw;
+  --theme-viewport-padding-sides: 3vw;
+  --theme-viewport-padding-bottom: 2.5vh;
+}
+
+/* =========================================================
+   TIPOGRAFÍA - OXANIUM & MONO NUMÉRICO
+   ========================================================= */
+@font-face {
+  font-family: "LITE";
+  src: url("../fonts/Oxanium/static/Oxanium-Regular.ttf");
+}
+@font-face {
+  font-family: "REGU";
+  src: url("../fonts/Oxanium/static/Oxanium-Medium.ttf");
+}
+@font-face {
+  font-family: "BOLD";
+  src: url("../fonts/Oxanium/static/Oxanium-Bold.ttf");
+}
+@font-face {
+  font-family: "BLAC";
+  src: url("../fonts/Oxanium/static/Oxanium-ExtraBold.ttf");
+}
+@font-face {
+  font-family: "DIGI";
+  src: url("../fonts/ShareTechMono-Regular.ttf");
+}
+
+/* =========================================================
+   COMPONENTES BASE Y COMPATIBILIDAD SPX LEGACY
+   ========================================================= */
+
+/* Ventana SPX */
+.SPXWindow {
+  font-family: "REGU", sans-serif;
+  color: var(--theme-lite-color);
+  letter-spacing: 0.03em;
+}
+
+/* Lower Thirds y Cajas SPX */
+#box1 {
+  background: var(--theme-bg-main);
+  color: var(--theme-lite-color);
+  border: 1px solid var(--theme-border-color);
+  border-left: var(--theme-accent-width) solid var(--theme-brandColor);
+  border-radius: var(--theme-corner-radius);
+  box-shadow: var(--theme-shadow);
+  backdrop-filter: blur(8px);
+}
+
+#box3, #box4 {
+  background-color: var(--theme-dark-color);
+  color: var(--theme-secondary);
+  border-top: 1px solid var(--theme-border-subtle);
+}
+
+#title1 {
+  background: var(--theme-bg-main);
+  color: var(--theme-brandColor);
+  font-family: 'BLAC';
+  font-size: 1.6em;
+  padding: 0.25em 0.8em;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--theme-brandColor);
+  box-shadow: var(--theme-shadow);
+}
+
+#title2 {
+  color: var(--theme-lite-color);
+  background-color: var(--theme-head-color);
+  font-family: 'REGU';
+  font-size: 0.85em;
+  padding: 0.4em 1.5em;
+}
+
+#leftInfo, #rightInfo {
+  background: var(--theme-bg-main);
+  color: var(--theme-lite-color);
+  font-family: 'BOLD';
+  border-left: var(--theme-accent-width) solid var(--theme-brandColor);
+  box-shadow: var(--theme-shadow);
+  backdrop-filter: blur(8px);
+}
+
+#rightInfo {
+  border-left: 0;
+  border-right: var(--theme-accent-width) solid var(--theme-brandColor);
+}
+
+/* =========================================================
+   SISTEMA DE TARJETAS DE JUZGAMIENTO (CARD INDICATORS)
+   ========================================================= */
+.card-indicator {
+  display: inline-block;
+  width: 1.1vw;
+  height: 1.6vh;
+  border-radius: 0.2vw;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-white {
+  background: var(--theme-card-white);
+  box-shadow: 0 0 0.8vw rgba(255, 255, 255, 0.9), inset 0 0 0.2vw rgba(0, 0, 0, 0.3);
+  border: 1px solid #ffffff;
+}
+
+.card-yellow {
+  background: var(--theme-card-yellow);
+  box-shadow: 0 0 0.9vw rgba(255, 214, 0, 0.9), inset 0 0 0.2vw rgba(0, 0, 0, 0.3);
+  border: 1px solid #ffee55;
+}
+
+.card-red {
+  background: var(--theme-card-red);
+  box-shadow: 0 0 0.9vw rgba(255, 45, 85, 0.9), inset 0 0 0.2vw rgba(0, 0, 0, 0.3);
+  border: 1px solid #ff6688;
+}
+
+.card-dns {
+  background: var(--theme-card-dns);
+  opacity: 0.6;
+  border: 1px solid #8899aa;
+}
+
+.card-sp {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 1.5vw !important;
+  height: 1.6vh !important;
+  border-radius: 0.2vw !important;
+  font-family: 'BLAC', sans-serif !important;
+  font-size: 0.65vw !important;
+  letter-spacing: 0.05em;
+  background: rgba(0, 229, 255, 0.25) !important;
+  color: var(--theme-brandColor) !important;
+  border: 1px solid var(--theme-brandColor) !important;
+  box-shadow: 0 0 0.6vw var(--theme-brandColor-glow) !important;
+  animation: apneaPulse 1s infinite ease-in-out;
+}
+
+.card-none {
+  display: none !important;
+}
+
+/* =========================================================
+   ESTILOS COMPARTIDOS PARA OVERLAYS DE COMPETENCIA Y HEAT
+   ========================================================= */
+
+/* Contenedor tipo Tarjeta Neón */
+.apnea-panel {
+  background: var(--theme-bg-main);
+  border: 1px solid var(--theme-border-color);
+  border-radius: var(--theme-corner-radius);
+  box-shadow: var(--theme-shadow);
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+  position: absolute;
+  box-sizing: border-box;
+}
+
+/* Encabezado Superior del Panel */
+.apnea-header {
+  background: var(--theme-bg-header);
+  border-bottom: 1px solid var(--theme-border-color);
+  color: var(--theme-lite-color);
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8vh 1vw;
+  box-sizing: border-box;
+}
+
+.apnea-header-title {
+  font-family: 'BLAC';
+  font-size: 1.1vw;
+  text-transform: uppercase;
+  color: var(--theme-brandColor);
+  display: flex;
+  align-items: center;
+  gap: 0.5vw;
+}
+
+.apnea-header-sub {
+  font-family: 'REGU';
+  font-size: 0.85vw;
+  color: var(--theme-secondary);
+  text-transform: uppercase;
+}
+
+/* Badges / Etiquetas */
+.apnea-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2vh 0.5vw;
+  border-radius: 0.3vw;
+  font-family: 'BOLD';
+  font-size: 0.75vw;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: rgba(0, 229, 255, 0.15);
+  color: var(--theme-brandColor);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+}
+
+.apnea-badge.discipline {
+  background: var(--theme-brandColor);
+  color: var(--theme-head-color);
+  font-family: 'BLAC';
+}
+
+.apnea-badge.ot {
+  background: rgba(255, 184, 0, 0.18);
+  color: var(--theme-accent-gold);
+  border-color: rgba(255, 184, 0, 0.4);
+}
+
+.apnea-badge.live-pulse {
+  background: rgba(255, 45, 85, 0.2);
+  color: #ff3b5c;
+  border-color: rgba(255, 45, 85, 0.5);
+  animation: apneaPulse 1.4s infinite ease-in-out;
+}
+
+@keyframes apneaPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.96); }
+}
+
+/* Filas de Atletas / Carriles */
+.apnea-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 0.9vh 1vw;
+  background: var(--theme-bg-row);
+  border-bottom: 1px solid var(--theme-border-subtle);
+  transition: background 0.3s ease, transform 0.2s ease;
+  box-sizing: border-box;
+}
+
+.apnea-row:nth-child(even) {
+  background: var(--theme-bg-row-alt);
+}
+
+.apnea-row.is-performing {
+  background: var(--theme-bg-row-active);
+  border-left: var(--theme-accent-width) solid var(--theme-brandColor);
+}
+
+.apnea-row:last-child {
+  border-bottom: none;
+}
+
+/* =========================================================
+   SISTEMA DE BANDERAS (FLAG ICONS) - PROPORCIÓN DE TEXTO
+   ========================================================= */
+.flag-icon {
+  position: relative;
+  display: inline-block;
+  height: 0.78em;             /* Ajustada para ser casi tan alta como las mayúsculas (Cap Height) */
+  width: 1.12em;              /* Proporción estándar de bandera */
+  line-height: 0.78em;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: 0.12em;
+  box-shadow: 0 0.08vh 0.25vh rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  vertical-align: -0.05em;    /* Alineación perfecta en la línea base del texto */
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.flag-icon:before {
+  content: "" !important;
+}
+
+/* Columnas de Datos */
+.apnea-col-lane {
+  width: 2.2vw;
+  font-family: 'BLAC';
+  font-size: 1vw;
+  color: var(--theme-brandColor);
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.apnea-col-flag {
+  width: 1.8vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1vw;
+  line-height: 1;
+  margin-right: 0.4vw;
+  flex-shrink: 0;
+}
+
+.apnea-col-country {
+  width: 3vw;
+  display: flex;
+  align-items: center;
+  font-family: 'BOLD';
+  font-size: 1vw;
+  color: var(--theme-secondary);
+  letter-spacing: 0.04em;
+  margin-right: 0.4vw;
+  flex-shrink: 0;
+}
+
+.apnea-col-athlete {
+  flex-grow: 1;
+  font-family: 'BOLD';
+  font-size: 1vw;
+  color: var(--theme-lite-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 0.6vw;
+}
+
+.apnea-col-ap,
+.apnea-col-rp {
+  width: 6vw;
+  text-align: center;
+  flex-shrink: 0;
+  font-family: 'REGU';
+  font-size: 0.95vw;
+  color: var(--theme-secondary);
+  box-sizing: border-box;
+}
+
+.apnea-col-rp {
+  font-family: 'BOLD';
+  color: var(--theme-lite-color);
+}
+
+.apnea-col-rp.is-live {
+  color: var(--theme-brandColor);
+  text-shadow: 0 0 0.5vw var(--theme-brandColor-glow);
+  letter-spacing: 0.03em;
+}
+
+.apnea-col-card {
+  width: 1.8vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Pie de Panel / Footer */
+.apnea-footer {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4vw;
+  padding: 0.45vh 1vw;
+  background: rgba(3, 10, 24, 0.85);
+  border-top: 1px solid var(--theme-border-subtle);
+  box-sizing: border-box;
+}
+
+.apnea-footer .footer-dot {
+  width: 0.35vw;
+  height: 0.35vw;
+  border-radius: 50%;
+  background: var(--theme-brandColor);
+  box-shadow: 0 0 0.4vw var(--theme-brandColor-glow);
+}
+
+.apnea-footer .footer-text {
+  font-family: 'BOLD';
+  font-size: 0.7vw;
+  color: var(--theme-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  opacity: 0.85;
+}
+
+/* Formatos Numéricos Digitales */
+.apnea-mono {
+  font-family: 'DIGI', monospace !important;
+  letter-spacing: 0.05em;
+}
+
+/* Tickers */
+.ticker #headline {
+  border-left: var(--theme-accent-width) solid var(--theme-brandColor);
+  background: var(--theme-bg-main);
+  color: var(--theme-brandColor);
+  font-family: 'BLAC';
+}
+
+.ticker #tickerText {
+  color: var(--theme-lite-color);
+  font-family: 'REGU';
+}

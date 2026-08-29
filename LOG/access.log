@@ -1,0 +1,2 @@
+::ffff:192.168.11.156 - - [21/Aug/2026:21:58:03 +0000] "GET /shows/ HTTP/1.1" 200 17130 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
+::ffff:192.168.11.156 - - [21/Aug/2026:21:58:04 +0000] "POST /api/heartbeat HTTP/1.1" 200 10 "http://192.168.68.20:5656/shows/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"

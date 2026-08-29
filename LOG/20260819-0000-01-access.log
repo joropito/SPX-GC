@@ -1,0 +1,2 @@
+::ffff:192.168.11.16 - - [18/Aug/2026:02:21:29 +0000] "POST /api/heartbeat HTTP/1.1" 200 10 "http://192.168.68.20:5656/gc/MyFirstProject/BAJAU%2050" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
+::ffff:192.168.11.16 - - [18/Aug/2026:02:21:29 +0000] "POST /gc/playout HTTP/1.1" 200 - "http://192.168.68.20:5656/gc/MyFirstProject/BAJAU%2050" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"

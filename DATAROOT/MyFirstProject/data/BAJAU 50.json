@@ -1,0 +1,126 @@
+{
+  "warning": "Modifications done in the SPX will overwrite this file.",
+  "copyright": "(c) 2020- SPX Graphics (https://spxgraphics.com)",
+  "updated": "2026-08-20T02:23:14.234Z",
+  "templates": [
+    {
+      "description": "Competitor info",
+      "playserver": "OVERLAY",
+      "playchannel": "1",
+      "playlayer": "3",
+      "webplayout": "3",
+      "out": "manual",
+      "dataformat": "json",
+      "uicolor": "3",
+      "DataFields": [
+        {
+          "ftype": "instruction",
+          "value": "You can leave any field empty for a different style. This is an example from the default template pack. For more templates see ▶ spxgraphics.com/store"
+        },
+        {
+          "field": "f99",
+          "ftype": "filelist",
+          "title": "Visual theme",
+          "assetfolder": "./themes/",
+          "extension": "css",
+          "value": "./themes/bajau.css"
+        },
+        {
+          "field": "_LANE",
+          "ftype": "dropdown",
+          "title": "CAMERA LANE",
+          "value": "1",
+          "items": [
+            {
+              "text": "LANE 1",
+              "value": "1"
+            },
+            {
+              "text": "LANE 2",
+              "value": "2"
+            },
+            {
+              "text": "LANE 3",
+              "value": "3"
+            },
+            {
+              "text": "LANE 4",
+              "value": "4"
+            }
+          ]
+        }
+      ],
+      "onair": "false",
+      "imported": "1784557613215",
+      "relpath": "/softpix/html/Template_Pack_1.4.0/competitor_data.html",
+      "itemID": "1784557626716"
+    },
+    {
+      "description": "Title or a headline",
+      "playserver": "OVERLAY",
+      "playchannel": "1",
+      "playlayer": "2",
+      "webplayout": "2",
+      "out": "manual",
+      "dataformat": "json",
+      "steps": 2,
+      "uicolor": "3",
+      "DataFields": [
+        {
+          "ftype": "instruction",
+          "value": "This template has two steps. Click 'Play' and then 'Continue'..."
+        },
+        {
+          "field": "f0",
+          "ftype": "textfield",
+          "title": "Main title",
+          "value": "Now click continue"
+        },
+        {
+          "field": "f1",
+          "ftype": "textfield",
+          "title": "Subtitle",
+          "value": "Step two completed!"
+        },
+        {
+          "field": "f99",
+          "ftype": "filelist",
+          "title": "Visual theme",
+          "assetfolder": "./themes/",
+          "extension": "css",
+          "value": "./themes/bajau.css"
+        }
+      ],
+      "onair": "false",
+      "imported": "1784517816140",
+      "relpath": "/softpix/html/Template_Pack_1.4.0/TITLE_2_STEPS.html",
+      "itemID": "1784517822245"
+    },
+    {
+      "description": "Tabla con Paginación",
+      "playserver": "OVERLAY",
+      "playchannel": "1",
+      "playlayer": "3",
+      "steps": 4,
+      "out": "manual",
+      "DataFields": [
+        {
+          "field": "f99",
+          "ftype": "filelist",
+          "title": "Visual theme",
+          "assetfolder": "./themes/",
+          "extension": "css",
+          "value": "./themes/bajau.css"
+        }
+      ],
+      "webplayout": "5",
+      "onair": "false",
+      "dataformat": "json",
+      "uicolor": "0",
+      "imported": "1786910471379",
+      "relpath": "/softpix/html/Template_Pack_1.4.0/session_table.html",
+      "itemID": "1786910475473"
+    }
+  ],
+  "rundown": "BAJAU 50"
+}

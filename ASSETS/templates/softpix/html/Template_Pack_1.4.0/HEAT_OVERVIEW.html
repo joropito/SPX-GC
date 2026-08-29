@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <title>Apnea - Active Heat Overview</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- Scripts Principales -->
+    <script type="text/javascript" src="js/lib/anime.min.js"></script>
+    <script type="text/javascript" src="js/spx_interface.js"></script>
+    
+    <!-- Estilos y Tema Dinámico -->
+    <link rel="stylesheet" type="text/css" href="css/styles.css" />
+    <link rel="stylesheet" type="text/css" href="css/flag-icon.css" />
+    <link rel="stylesheet" type="text/css" id="DynamicTheme" href="themes/Apnea_Broadcast.css" />
+
+    <style>
+        .SPXWindow {
+            position: absolute;
+            width: 100vw;
+            height: 100vh;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        #gfx {
+            position: absolute;
+            opacity: 0; /* Animado por Anime.js */
+            box-sizing: border-box;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            transform-origin: center center;
+            will-change: transform, opacity;
+        }
+
+        /* =========================================================
+           CLASES DE POSICIONAMIENTO CONFIGURABLES DESDE SPX
+           ========================================================= */
+        .pos-bottom-left {
+            bottom: 4.5vh;
+            left: 3vw;
+            top: auto;
+            right: auto;
+            transform-origin: bottom left;
+        }
+        .pos-bottom-right {
+            bottom: 4.5vh;
+            right: 3vw;
+            left: auto;
+            top: auto;
+            transform-origin: bottom right;
+        }
+        .pos-top-left {
+            top: 12vh;
+            left: 6vw;
+            bottom: auto;
+            right: auto;
+            transform-origin: top left;
+        }
+        .pos-top-right {
+            top: 4vh;
+            right: 3vw;
+            bottom: auto;
+            left: auto;
+            transform-origin: top right;
+        }
+        .pos-center-left {
+            top: 50%;
+            left: 3vw;
+            transform: translateY(-50%);
+            transform-origin: center left;
+        }
+        .pos-center-right {
+            top: 50%;
+            right: 3vw;
+            transform: translateY(-50%);
+            transform-origin: center right;
+        }
+        .pos-bottom-center {
+            bottom: 4.5vh;
+            left: 50%;
+            transform: translateX(-50%);
+            transform-origin: bottom center;
+        }
+
+        /* =========================================================
+           CLASES DE TAMAÑO / ESCALA CONFIGURABLES DESDE SPX
+           ========================================================= */
+        .size-compact {
+            width: 40vw;
+            font-size: 0.9em;
+        }
+        .size-standard {
+            width: 50vw;
+            font-size: 1em;
+        }
+        .size-wide {
+            width: 62vw;
+            font-size: 1.05em;
+        }
+        .size-full {
+            width: 75vw;
+            font-size: 1.1em;
+        }
+
+        /* Columnas de Encabezado */
+        .apnea-table-head {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            padding: 0.5vh 1vw;
+            background: rgba(4, 12, 30, 0.7);
+            border-bottom: 1px solid var(--theme-border-subtle);
+            font-family: 'BOLD';
+            font-size: 0.75vw;
+            color: var(--theme-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .head-lane { width: 2.2vw; text-align: center; }
+        .head-flag { width: 1.8vw; text-align: center; }
+        .head-country { width: 3vw; }
+        .head-athlete { flex-grow: 1; padding-left: 0.2vw; }
+        .head-ap { width: 6vw; text-align: center; }
+        .head-rp { width: 6vw; text-align: center; }
+        .head-card { width: 1.8vw; text-align: center; }
+
+        /* Contenedor de Filas */
+        #lanesContainer {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .empty-heat-msg {
+            padding: 2vh 1vw;
+            text-align: center;
+            font-family: 'REGU';
+            font-size: 0.9vw;
+            color: var(--theme-secondary);
+        }
+
+        /* Pie de Panel / Footer */
+        .apnea-footer {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4vw;
+            padding: 0.45vh 1vw;
+            background: rgba(3, 10, 24, 0.85);
+            border-top: 1px solid var(--theme-border-subtle);
+            box-sizing: border-box;
+        }
+
+        .apnea-footer .footer-dot {
+            width: 0.35vw;
+            height: 0.35vw;
+            border-radius: 50%;
+            background: var(--theme-brandColor);
+            box-shadow: 0 0 0.4vw var(--theme-brandColor-glow);
+        }
+
+        .apnea-footer .footer-text {
+            font-family: 'BOLD';
+            font-size: 0.7vw;
+            color: var(--theme-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            opacity: 0.85;
+        }
+
+        .card-sp {
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            width: 1.5vw !important;
+            height: 1.6vh !important;
+            border-radius: 0.2vw !important;
+            font-family: 'BLAC', sans-serif !important;
+            font-size: 0.65vw !important;
+            letter-spacing: 0.05em;
+            background: rgba(0, 229, 255, 0.25) !important;
+            color: var(--theme-brandColor) !important;
+            border: 1px solid var(--theme-brandColor) !important;
+            box-shadow: 0 0 0.6vw var(--theme-brandColor-glow) !important;
+            animation: apneaPulse 1s infinite ease-in-out;
+        }
+    </style>
+
+    <script>
+        // Helper local seguro para elementos DOM (garantiza compatibilidad durante el escaneo JSDOM de SPX)
+        function e(elementID) {
+            if (!elementID) return null;
+            return document.getElementById(elementID);
+        }
+
+        function htmlDecode(txt) {
+            if (!txt) return '';
+            try {
+                var doc = new DOMParser().parseFromString(txt, "text/html");
+                return doc.documentElement.textContent || '';
+            } catch (_) {
+                return txt;
+            }
+        }
+
+        // Obtener Host de la API (Prioridad: Campo SPX -> Query URL -> Default)
+        function getApiBaseUrl() {
+            const spxHost = e('_API_HOST') ? e('_API_HOST').innerText.trim() : '';
+            if (spxHost !== '') return spxHost.replace(/\/$/, '');
+            
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const paramHost = urlParams.get('api') || urlParams.get('host');
+                if (paramHost) return paramHost.replace(/\/$/, '');
+
+                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                    return `${window.location.protocol}//${window.location.hostname}:3100`;
+                }
+            } catch (_) {}
+            return "https://apnea.glamsi.com";
+        }
+
+        // Aplicar Posición y Tamaño al Recuadro desde Configuración SPX
+        function applyLayoutConfig() {
+            const gfx = e('gfx');
+            if (!gfx) return;
+
+            // 1. Posición
+            let positionClass = 'pos-bottom-left';
+            const spxPos = e('_POSITION') ? e('_POSITION').innerText.trim().toLowerCase() : '';
+            let urlPos = '';
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                urlPos = (urlParams.get('pos') || urlParams.get('position') || '').toLowerCase();
+            } catch (_) {}
+            const targetPos = spxPos || urlPos;
+
+            if (targetPos) {
+                if (targetPos.includes('bottom-right')) positionClass = 'pos-bottom-right';
+                else if (targetPos.includes('top-left')) positionClass = 'pos-top-left';
+                else if (targetPos.includes('top-right')) positionClass = 'pos-top-right';
+                else if (targetPos.includes('center-left')) positionClass = 'pos-center-left';
+                else if (targetPos.includes('center-right')) positionClass = 'pos-center-right';
+                else if (targetPos.includes('bottom-center') || targetPos.includes('center')) positionClass = 'pos-bottom-center';
+                else positionClass = 'pos-bottom-left';
+            }
+
+            // 2. Tamaño
+            let sizeClass = 'size-standard';
+            const spxSize = e('_SIZE') ? e('_SIZE').innerText.trim().toLowerCase() : '';
+            let urlSize = '';
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                urlSize = (urlParams.get('size') || '').toLowerCase();
+            } catch (_) {}
+            const targetSize = spxSize || urlSize;
+
+            if (targetSize) {
+                if (targetSize.includes('compact')) sizeClass = 'size-compact';
+                else if (targetSize.includes('wide')) sizeClass = 'size-wide';
+                else if (targetSize.includes('full')) sizeClass = 'size-full';
+                else sizeClass = 'size-standard';
+            }
+
+            // Resetear clases de posicion y tamaño previas
+            gfx.className = `apnea-panel ${positionClass} ${sizeClass}`;
+        }
+
+        // Formateador inteligente de marcas según disciplina
+        function formatMetric(val, discipline) {
+            if (!val || val === '' || val === 'undefined' || val === 'null') return '-';
+            const strVal = val.toString().trim();
+            if (strVal === 'DNS' || strVal === 'DQ' || strVal === 'EN CURSO') return strVal;
+            
+            if (discipline === 'STA') {
+                return strVal; // Formato MM:SS
+            } else {
+                // Disciplinas de distancia DYN / DYNB / DNF
+                if (!strVal.includes('m') && !isNaN(parseFloat(strVal))) {
+                    return `${strVal} m`;
+                }
+                return strVal;
+            }
+        }
+
+        // =========================================================
+        // MOTOR DE ESTIMACIÓN DINÁMICA (API CLIENT DISTANCE ENGINE)
+        // =========================================================
+        const liveTrackers = new Map();
+        const localAttemptStartMap = new Map();
+
+        // Parser de parámetros de velocidad e intervalo de posta
+        function getCompetitionParams(attempt, competition) {
+            const disc = (attempt ? (attempt.attemp_discipline || '') : '').trim().toUpperCase();
+            const compSpeeds = (competition && competition.initial_speeds) ? competition.initial_speeds : {};
+            const gender = (attempt && (attempt.athlete_gender || attempt.gender) ? (attempt.athlete_gender || attempt.gender) : 'M').trim().toUpperCase();
+
+            let initialV = 1.0;
+            if (compSpeeds[disc] !== undefined) {
+                if (typeof compSpeeds[disc] === 'object' && compSpeeds[disc] !== null) {
+                    const speedByGender = compSpeeds[disc][gender] || compSpeeds[disc].M || compSpeeds[disc].default;
+                    if (speedByGender !== undefined && !isNaN(parseFloat(speedByGender))) {
+                        initialV = parseFloat(speedByGender);
+                    }
+                } else if (!isNaN(parseFloat(compSpeeds[disc]))) {
+                    initialV = parseFloat(compSpeeds[disc]);
+                }
+            } else if (compSpeeds.default !== undefined && !isNaN(parseFloat(compSpeeds.default))) {
+                initialV = parseFloat(compSpeeds.default);
+            } else {
+                if (disc === 'DNF') initialV = 0.95;
+                else if (disc === 'DYNB') initialV = 1.05;
+                else if (disc === 'DYN') initialV = 1.15;
+            }
+
+            const intervaloPosta = (competition && competition.distance_step && !isNaN(parseFloat(competition.distance_step)))
+                ? parseFloat(competition.distance_step)
+                : 5;
+
+            return { initialV, intervaloPosta };
+        }
+
+        // Reconstrucción matemática pura en un instante específico
+        function calculatePureDistance(attempt, competition, targetTimeMs) {
+            if (!attempt) return 0;
+            const { initialV, intervaloPosta } = getCompetitionParams(attempt, competition);
+            let updates = (attempt.judge_updates || []).filter(u => new Date(u.timestamp).getTime() <= targetTimeMs);
+            let startEvent = updates.find(u => u.event_type === 'START');
+
+            if (!startEvent && (attempt.started_at || attempt.start_time || attempt.start_timestamp || attempt.timestamp)) {
+                startEvent = {
+                    event_type: 'START',
+                    timestamp: attempt.started_at || attempt.start_time || attempt.start_timestamp || attempt.timestamp
+                };
+                updates.unshift(startEvent);
+            }
+
+            if (!startEvent) return 0;
+
+            let D_base = 0;
+            let T_base = new Date(startEvent.timestamp).getTime();
+            let V_actual = initialV;
+
+            const splits = updates
+                .filter(u => u.event_type === 'LAP')
+                .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+            for (const split of splits) {
+                const T_real = new Date(split.timestamp).getTime();
+                const deltaT_split = Math.max(0.1, (T_real - T_base) / 1000);
+
+                let D_estimada_al_click = D_base + (V_actual * deltaT_split);
+                let postaMasCercana = Math.round(D_estimada_al_click / intervaloPosta) * intervaloPosta;
+
+                if (postaMasCercana <= D_base) {
+                    postaMasCercana = D_base + intervaloPosta;
+                }
+
+                const deltaD_split = postaMasCercana - D_base;
+                const velocidadCalculada = deltaD_split / deltaT_split;
+
+                const VELOCIDAD_CAP = 2.0;
+                const VELOCIDAD_MISCLICK = 4.0;
+
+                if (velocidadCalculada < VELOCIDAD_MISCLICK) {
+                    if (deltaT_split > 0 && deltaD_split > 0) {
+                        V_actual = Math.max(0.2, Math.min(velocidadCalculada, VELOCIDAD_CAP));
+                    }
+                    D_base = postaMasCercana;
+                    T_base = T_real;
+                }
+            }
+
+            const rawDeltaT = Math.max(0, (targetTimeMs - T_base) / 1000);
+            let D_final = D_base + (V_actual * rawDeltaT);
+
+            const maximoPermitido = D_base + (intervaloPosta * 3) - 0.01;
+            if (D_final > maximoPermitido) {
+                D_final = maximoPermitido;
+            }
+
+            return Math.floor(D_final);
+        }
+
+        // Cálculo continuo y suavizado en tiempo real
+        function calculateLiveDynamicDistance(attempt, competition, nowMs = Date.now(), useSmoothing = true) {
+            if (!attempt || !attempt.attemp_id) return 0;
+            const attemptId = attempt.attemp_id;
+            let updates = Array.isArray(attempt.judge_updates) ? [...attempt.judge_updates] : [];
+            let startEvent = updates.find(u => u.event_type === 'START');
+
+            if (!startEvent && (attempt.started_at || attempt.start_time || attempt.start_timestamp || attempt.timestamp)) {
+                startEvent = {
+                    event_type: 'START',
+                    timestamp: attempt.started_at || attempt.start_time || attempt.start_timestamp || attempt.timestamp
+                };
+                updates.unshift(startEvent);
+            }
+
+            if (!startEvent) {
+                const attemptKey = attempt.attemp_id || `lane_${attempt.attemp_lane}`;
+                if (localAttemptStartMap.has(attemptKey)) {
+                    startEvent = {
+                        event_type: 'START',
+                        timestamp: new Date(localAttemptStartMap.get(attemptKey)).toISOString()
+                    };
+                    updates.unshift(startEvent);
+                }
+            }
+
+            if (updates.length === 0 || !startEvent) {
+                if (liveTrackers.has(attemptId)) liveTrackers.delete(attemptId);
+                return 0;
+            }
+
+            const stopEvent = updates.slice().reverse().find(u => u.event_type === 'PRESTOP' || u.event_type === 'FINAL');
+            if (stopEvent) {
+                if (liveTrackers.has(attemptId)) liveTrackers.delete(attemptId);
+                return calculatePureDistance(attempt, competition, new Date(stopEvent.timestamp).getTime());
+            }
+
+            if (!useSmoothing) {
+                return calculatePureDistance(attempt, competition, nowMs);
+            }
+
+            const { initialV, intervaloPosta } = getCompetitionParams(attempt, competition);
+            const splits = updates
+                .filter(u => u.event_type === 'LAP')
+                .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+            let tracker = liveTrackers.get(attemptId);
+
+            if (tracker && tracker.originalStartTimestamp !== startEvent.timestamp) {
+                liveTrackers.delete(attemptId);
+                tracker = undefined;
+            }
+
+            if (!tracker) {
+                tracker = {
+                    originalStartTimestamp: startEvent.timestamp,
+                    D_base: 0,
+                    T_base: new Date(startEvent.timestamp).getTime(),
+                    V_actual: initialV,
+                    D_actual: 0,
+                    OffsetCorreccion: 0,
+                    lastSplitTimestamp: startEvent.timestamp,
+                    isNewSplitTick: false,
+                    maxDeltaT: 0,
+                    hasCustomSpeed: false
+                };
+                liveTrackers.set(attemptId, tracker);
+            }
+
+            const latestSplit = splits.length > 0 ? splits[splits.length - 1] : startEvent;
+
+            if (tracker.lastSplitTimestamp !== latestSplit.timestamp) {
+                const T_real = new Date(latestSplit.timestamp).getTime();
+                const deltaT_total = Math.max(0.1, (T_real - tracker.T_base) / 1000);
+
+                let D_estimada_al_click = tracker.D_base + (tracker.V_actual * deltaT_total);
+                let postaObjetivo = Math.round(D_estimada_al_click / intervaloPosta) * intervaloPosta;
+
+                if (postaObjetivo <= tracker.D_base) {
+                    postaObjetivo = tracker.D_base + intervaloPosta;
+                }
+
+                const postasTotalesSaltadas = Math.round((postaObjetivo - tracker.D_base) / intervaloPosta);
+
+                if (postasTotalesSaltadas > 1) {
+                    tracker.D_base = postaObjetivo;
+                    tracker.T_base = T_real;
+                } else {
+                    const deltaD_split = postaObjetivo - tracker.D_base;
+                    let velocidadCalculada = deltaD_split / deltaT_total;
+                    const VELOCIDAD_CAP = 2.0;
+                    const VELOCIDAD_MISCLICK = 4.0;
+
+                    if (velocidadCalculada < VELOCIDAD_MISCLICK) {
+                        if (deltaT_total > 0 && deltaD_split > 0) {
+                            tracker.V_actual = Math.max(0.2, Math.min(velocidadCalculada, VELOCIDAD_CAP));
+                            tracker.hasCustomSpeed = true;
+                        }
+                        tracker.OffsetCorreccion = tracker.D_actual - postaObjetivo;
+                        tracker.D_base = postaObjetivo;
+                        tracker.T_base = T_real;
+                    }
+                }
+
+                tracker.lastSplitTimestamp = latestSplit.timestamp;
+                tracker.isNewSplitTick = true;
+                tracker.maxDeltaT = 0;
+            }
+
+            const rawDeltaT = Math.max(0, (nowMs - tracker.T_base) / 1000);
+            tracker.maxDeltaT = Math.max(tracker.maxDeltaT, rawDeltaT);
+
+            let D_ideal = tracker.D_base + (tracker.V_actual * tracker.maxDeltaT);
+
+            const maximoPermitido = tracker.D_base + (intervaloPosta * 3) - 0.01;
+            if (D_ideal > maximoPermitido) {
+                D_ideal = maximoPermitido;
+            }
+
+            const D_actual_prev = tracker.D_actual;
+            let D_calculado = D_ideal + tracker.OffsetCorreccion;
+
+            if (D_calculado < D_actual_prev && !tracker.isNewSplitTick) {
+                D_calculado = D_actual_prev;
+            }
+
+            tracker.D_actual = D_calculado;
+
+            if (!tracker.isNewSplitTick) {
+                tracker.OffsetCorreccion *= 0.85;
+            } else {
+                tracker.isNewSplitTick = false;
+            }
+
+            if (Math.abs(tracker.OffsetCorreccion) < 0.01) tracker.OffsetCorreccion = 0;
+
+            return Math.floor(tracker.D_actual);
+        }
+
+        // Parser de timestamps para estática y fallbacks
+        function parseTimestampMs(val, sessionDate) {
+            if (!val && val !== 0) return 0;
+            if (typeof val === 'number') {
+                return val < 10000000000 ? val * 1000 : val;
+            }
+            if (typeof val === 'string') {
+                const str = val.trim();
+                if (/^\d+$/.test(str)) {
+                    const num = Number(str);
+                    return num < 10000000000 ? num * 1000 : num;
+                }
+                const parsed = Date.parse(str);
+                if (!isNaN(parsed) && parsed > 0) return parsed;
+
+                const timeMatch = str.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+                if (timeMatch) {
+                    const d = sessionDate ? new Date(sessionDate) : new Date();
+                    d.setHours(parseInt(timeMatch[1], 10), parseInt(timeMatch[2], 10), parseInt(timeMatch[3] || '0', 10), 0);
+                    return d.getTime();
+                }
+            }
+            return 0;
+        }
+
+        // =========================================================
+        // ESTADO GLOBAL, SINCRONIZACIÓN DE RELOJ Y LIVE ENGINE
+        // =========================================================
+        let appState = { attempts: [], athletes: [], sessions: [], competition: {}, active_broadcast: {} };
+        let clockOffset = 0;
+        let liveTickerTimer = null;
+        let eventSource = null;
+        let isOverlayVisible = false;
+        let currentRenderedHeatKey = "";
+
+        // Cargar estado inicial y calcular offset del reloj con el servidor
+        async function loadInitialData() {
+            try {
+                const apiBase = getApiBaseUrl();
+                const res = await fetch(`${apiBase}/api/all`);
+                if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+                const data = await res.json();
+
+                // Guardar offset entre el reloj local y el servidor para evitar desfases
+                clockOffset = Date.now() - (data.server_now || Date.now());
+                appState = data;
+
+                syncHeatStructure();
+            } catch (err) {
+                console.error("Error al cargar datos iniciales:", err);
+            }
+        }
+
+        // Escuchar cambios de eventos vía SSE (START, LAP, PRESTOP, etc.)
+        function setupLiveUpdates() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            try {
+                const apiBase = getApiBaseUrl();
+                eventSource = new EventSource(`${apiBase}/api/events`);
+
+                eventSource.onopen = () => {
+                    console.log("SSE conectado a:", `${apiBase}/api/events`);
+                    loadInitialData();
+                };
+
+                eventSource.onmessage = async (e) => {
+                    if (e.data === 'update' || !e.data || e.data === 'connected') {
+                        try {
+                            const apiBase = getApiBaseUrl();
+                            const res = await fetch(`${apiBase}/api/all`);
+                            if (res.ok) {
+                                const data = await res.json();
+                                clockOffset = Date.now() - (data.server_now || Date.now());
+                                appState = data;
+                                syncHeatStructure();
+                            }
+                        } catch (err) {
+                            console.error("Error actualizando estado por SSE:", err);
+                        }
+                    }
+                };
+
+                eventSource.onerror = () => {
+                    console.warn("SSE reconectando...");
+                };
+            } catch (e) {
+                console.error("Error al inicializar EventSource:", e);
+            }
+        }
+
+        // Obtener la información del heat activo a partir del estado global
+        function getActiveHeatInfo() {
+            if (!appState || !appState.sessions || !appState.attempts) return null;
+
+            const activeBroadcast = appState.active_broadcast || {};
+            let activeSessionId = activeBroadcast.session_id || "";
+            let activeOt = activeBroadcast.session_ot || activeBroadcast.heat_ot || "";
+
+            const sessionsList = appState.sessions || appState.heats || [];
+            let activeSession = sessionsList.find(s => (s.session_id === activeSessionId || s.heat_id === activeSessionId));
+
+            if (!activeSession && sessionsList.length > 0) {
+                activeSession = sessionsList.find(s => s.status !== 'closed') || sessionsList[0];
+                activeSessionId = activeSession.session_id || activeSession.heat_id;
+            }
+
+            if (!activeSession) return null;
+
+            const sessionAttempts = (appState.attempts || []).filter(att => 
+                att.session_id === activeSessionId || att.heat_id === activeSessionId
+            );
+
+            if (!activeOt) {
+                const performingAtt = sessionAttempts.find(att => att.attemp_status === 'PERFORMING');
+                if (performingAtt && performingAtt.attemp_ot) {
+                    activeOt = performingAtt.attemp_ot;
+                } else if (sessionAttempts.length > 0) {
+                    activeOt = sessionAttempts[0].attemp_ot || "";
+                }
+            }
+
+            let heatAttempts = sessionAttempts.filter(att => !activeOt || att.attemp_ot === activeOt);
+            if (heatAttempts.length === 0 && sessionAttempts.length > 0) {
+                heatAttempts = sessionAttempts.slice(0, activeSession.lanes_count || 4);
+            }
+
+            heatAttempts.sort((a, b) => parseInt(a.attemp_lane || 0, 10) - parseInt(b.attemp_lane || 0, 10));
+
+            return {
+                session: activeSession,
+                sessionId: activeSessionId,
+                ot: activeOt,
+                discipline: (activeSession.session_discipline || "STA").toUpperCase(),
+                attempts: heatAttempts
+            };
+        }
+
+        // Helper para resolver tarjeta según el estado y tarjetas oficiales
+        function getAttemptCard(att, isJudged) {
+            const card = (att.attemp_card || '').toLowerCase();
+            const isDoneOrSP = att.attemp_status === 'DONE' || 
+                               Boolean(att.performance_finished_at && !card && !isJudged) ||
+                               (Array.isArray(att.judge_updates) && att.judge_updates.some(u => u.event_type === 'PRESTOP' || u.event_type === 'FINAL') && !card && !isJudged);
+
+            if (isJudged && card) {
+                return { cardClass: `card-${card}`, cardContent: '' };
+            }
+            if (isDoneOrSP && !isJudged) {
+                return { cardClass: 'card-sp', cardContent: 'SP' };
+            }
+            return { cardClass: 'card-none', cardContent: '' };
+        }
+
+        // Sincronizar la estructura DOM del Heat (solo regenera HTML si cambia de sesión / heat)
+        function syncHeatStructure() {
+            const heatInfo = getActiveHeatInfo();
+            if (!heatInfo) return;
+
+            const athletesList = appState.athletes || [];
+            const heatKey = `${heatInfo.sessionId}_${heatInfo.ot}_${heatInfo.attempts.map(a => a.athlete_id + '_' + a.attemp_lane).join('-')}`;
+
+            // Actualizar Encabezados
+            if (e('heatDiscipline')) e('heatDiscipline').innerText = heatInfo.discipline;
+            if (e('heatTitle')) e('heatTitle').innerText = 'HEAT EN VIVO';
+            if (e('heatOt')) {
+                if (heatInfo.ot) {
+                    e('heatOt').innerText = `OT ${heatInfo.ot}`;
+                    e('heatOt').style.display = 'inline-flex';
+                } else {
+                    e('heatOt').style.display = 'none';
+                }
+            }
+            if (e('sessionName')) e('sessionName').innerText = heatInfo.session.session_name || 'SESIÓN ACTIVA';
+
+            // Regenerar estructura de filas solo si cambió de heat o es primera vez
+            if (heatKey !== currentRenderedHeatKey) {
+                currentRenderedHeatKey = heatKey;
+                const container = e('lanesContainer');
+                if (!container) return;
+
+                if (heatInfo.attempts.length === 0) {
+                    container.innerHTML = `<div class="empty-heat-msg">No hay intentos programados para este heat</div>`;
+                    return;
+                }
+
+                let html = '';
+                heatInfo.attempts.forEach(att => {
+                    const athlete = athletesList.find(a => a.athlete_id === att.athlete_id) || {};
+                    const lane = att.attemp_lane || 1;
+                    const country = (athlete.athlete_country || '').toUpperCase();
+                    const flagClass = country ? `flag-icon flag-icon-${country.toLowerCase()}` : '';
+
+                    const isJudged = att.attemp_status === 'JUDGED' || att.attemp_status === 'DQ' || Boolean(att.attemp_card) || att.attemp_status === 'DNS';
+                    const cardInfo = getAttemptCard(att, isJudged);
+
+                    html += `
+                    <div class="apnea-row" id="lane-row-${lane}">
+                        <div class="apnea-col-lane">${lane}</div>
+                        <div class="apnea-col-flag">
+                            <span class="${flagClass}" title="${country}"></span>
+                        </div>
+                        <div class="apnea-col-country">${country}</div>
+                        <div class="apnea-col-athlete">${htmlDecode(athlete.athlete_name || 'ATLETA')}</div>
+                        <div class="apnea-col-ap apnea-mono">${htmlDecode(formatMetric(att.attemp_ap, heatInfo.discipline))}</div>
+                        <div class="apnea-col-rp apnea-mono" id="live-rp-${lane}">-</div>
+                        <div class="apnea-col-card">
+                            <span class="card-indicator ${cardInfo.cardClass}" id="card-lane-${lane}">${cardInfo.cardContent}</span>
+                        </div>
+                    </div>`;
+                });
+
+                container.innerHTML = html;
+            }
+
+            // Ejecutar tick inmediato para reflejar valores
+            tickLiveValues();
+        }
+
+        // Ticker continuo cada 200ms para proyección fluida segundo a segundo
+        function tickLiveValues() {
+            const heatInfo = getActiveHeatInfo();
+            if (!heatInfo) return;
+
+            const nowMs = Date.now() - clockOffset;
+            const athletesList = appState.athletes || [];
+            const isDynamic = ['DYN', 'DYNB', 'DNF'].includes(heatInfo.discipline);
+
+            heatInfo.attempts.forEach(att => {
+                const lane = att.attemp_lane || 1;
+                const rowEl = e(`lane-row-${lane}`);
+                const rpEl = e(`live-rp-${lane}`);
+                const cardEl = e(`card-lane-${lane}`);
+                if (!rpEl) return;
+
+                const isJudged = att.attemp_status === 'JUDGED' || att.attemp_status === 'DQ' || Boolean(att.attemp_card) || att.attemp_status === 'DNS';
+                const isPerforming = att.attemp_status === 'PERFORMING';
+                const cardInfo = getAttemptCard(att, isJudged);
+
+                // Actualizar estado de fila
+                if (rowEl) {
+                    if (isPerforming) rowEl.classList.add('is-performing');
+                    else rowEl.classList.remove('is-performing');
+                }
+
+                // Tarjeta
+                if (cardEl) {
+                    cardEl.className = `card-indicator ${cardInfo.cardClass}`;
+                    cardEl.innerHTML = cardInfo.cardContent;
+                }
+
+                if (isJudged) {
+                    rpEl.classList.remove('is-live');
+                    let resultDisplay = '';
+                    const card = (att.attemp_card || '').toLowerCase();
+                    if (card === 'red' || att.attemp_status === 'DQ') {
+                        resultDisplay = 'DQ';
+                    } else if (card === 'dns' || att.attemp_status === 'DNS') {
+                        resultDisplay = 'DNS';
+                    } else {
+                        const val = att.official_result || att.attemp_rp || '-';
+                        resultDisplay = formatMetric(val, heatInfo.discipline);
+                    }
+                    rpEl.innerHTML = htmlDecode(resultDisplay);
+                } else if (isPerforming) {
+                    rpEl.classList.add('is-live');
+                    if (isDynamic) {
+                        const athlete = athletesList.find(a => a.athlete_id === att.athlete_id) || {};
+                        const attemptForCalc = {
+                            ...att,
+                            athlete_gender: athlete.athlete_gender || att.athlete_gender || 'M',
+                            attemp_discipline: heatInfo.discipline
+                        };
+                        const estimatedMeters = calculateLiveDynamicDistance(
+                            attemptForCalc,
+                            appState.competition,
+                            nowMs,
+                            true
+                        );
+                        rpEl.innerHTML = `${estimatedMeters} m`;
+                    } else {
+                        // STA: Cálculo horario local
+                        let rawStartTime = att.started_at || att.start_time || att.performance_started_at || att.timestamp || att.locked_at;
+                        if (!rawStartTime && Array.isArray(att.judge_updates) && att.judge_updates.length > 0) {
+                            const startEv = att.judge_updates.find(u => u.event_type === 'START' || u.type === 'START') || att.judge_updates[0];
+                            if (startEv) rawStartTime = startEv.timestamp || startEv.time;
+                        }
+
+                        const attemptKey = att.attemp_id || `lane_${lane}`;
+                        let startMs = parseTimestampMs(rawStartTime, appState.session_date);
+                        if (startMs === 0) {
+                            if (!localAttemptStartMap.has(attemptKey)) {
+                                localAttemptStartMap.set(attemptKey, nowMs);
+                            }
+                            startMs = localAttemptStartMap.get(attemptKey);
+                        }
+
+                        const elapsedSec = Math.max(0, (nowMs - startMs) / 1000);
+                        const mins = Math.floor(elapsedSec / 60);
+                        const secs = Math.floor(elapsedSec % 60);
+                        rpEl.innerHTML = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                    }
+                } else {
+                    rpEl.classList.remove('is-live');
+                    rpEl.innerHTML = htmlDecode(formatMetric(att.preliminary_result || att.attemp_rp || '-', heatInfo.discipline));
+                }
+            });
+        }
+
+        // Iniciar Ticker Continuo
+        function startLiveTicker() {
+            if (liveTickerTimer) clearInterval(liveTickerTimer);
+            liveTickerTimer = setInterval(() => {
+                if (isOverlayVisible) {
+                    tickLiveValues();
+                }
+            }, 200); // 200ms para fluidez continua sin saltos
+        }
+
+        function stopLiveTicker() {
+            if (liveTickerTimer) {
+                clearInterval(liveTickerTimer);
+                liveTickerTimer = null;
+            }
+        }
+
+        // =========================================================
+        // HANDLERS DEL CICLO DE VIDA DE SPX
+        // =========================================================
+
+        function runTemplateUpdate() {
+            // Actualizar tema visual si está configurado en f99
+            if (e('DynamicTheme') && e('f99') && e('f99').innerText.trim() !== '') {
+                e('DynamicTheme').href = e('f99').innerText.trim();
+            }
+
+            // Aplicar configuración de posición y tamaño
+            applyLayoutConfig();
+
+            // Asegurar conexión y ticker activos
+            if (!eventSource) {
+                setupLiveUpdates();
+            }
+            startLiveTicker();
+
+            // Ejecutar animación de entrada inmediatamente sin retrasos
+            runAnimationIN();
+        }
+
+        function runAnimationIN() {
+            isOverlayVisible = true;
+
+            // Detener cualquier animación previa
+            anime.remove(['#gfx', '.apnea-header', '.apnea-row', '.apnea-footer']);
+
+            // Reset inicial rápido
+            anime.set('#gfx', { opacity: 0, scale: 0.96 });
+            anime.set('.apnea-header', { opacity: 0, translateY: -15 });
+            anime.set('.apnea-row', { opacity: 0, translateX: -20 });
+            anime.set('.apnea-footer', { opacity: 0, translateY: 10 });
+
+            // Timeline principal de entrada con Anime.js (rápido y fluido: 320ms)
+            var tl = anime.timeline({
+                easing: 'easeOutCubic'
+            });
+
+            tl.add({
+                targets: '#gfx',
+                opacity: [0, 1],
+                scale: [0.96, 1],
+                duration: 250
+            }, 0)
+            .add({
+                targets: '.apnea-header',
+                opacity: [0, 1],
+                translateY: [-15, 0],
+                duration: 250
+            }, 40)
+            .add({
+                targets: '.apnea-row',
+                opacity: [0, 1],
+                translateX: [-20, 0],
+                duration: 260,
+                delay: anime.stagger(35)
+            }, 80)
+            .add({
+                targets: '.apnea-footer',
+                opacity: [0, 1],
+                translateY: [10, 0],
+                duration: 200
+            }, 120);
+        }
+
+        function runAnimationOUT() {
+            isOverlayVisible = false;
+
+            // Detener cualquier animación previa
+            anime.remove(['#gfx', '.apnea-header', '.apnea-row', '.apnea-footer']);
+
+            // Salida inmediata y limpia (200ms total)
+            var tl = anime.timeline({
+                easing: 'easeInCubic',
+                duration: 200,
+                complete: function() {
+                    anime.set('#gfx', { opacity: 0, scale: 0.96 });
+                }
+            });
+
+            tl.add({
+                targets: ['.apnea-footer', '.apnea-row', '.apnea-header'],
+                opacity: [1, 0],
+                duration: 150
+            }, 0)
+            .add({
+                targets: '#gfx',
+                opacity: [1, 0],
+                scale: [1, 0.96],
+                duration: 200
+            }, 40);
+        }
+
+        // Inicialización y precarga inmediata en background
+        window.addEventListener('DOMContentLoaded', () => {
+            try {
+                applyLayoutConfig();
+                loadInitialData();
+                setupLiveUpdates();
+                startLiveTicker();
+
+                if (typeof window !== 'undefined' && window.location && window.location.search) {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    if (urlParams.has('autostart') || urlParams.has('live') || urlParams.has('show')) {
+                        setTimeout(runAnimationIN, 100);
+                    }
+                }
+            } catch (err) {
+                console.error("Error en inicialización:", err);
+            }
+        });
+
+        // =========================================================
+        // DEFINICIÓN DE METADATOS SPX (SPXGCTemplateDefinition)
+        // =========================================================
+        window.SPXGCTemplateDefinition = {
+            "description": "Active Heat Overview (Live SSE)",
+            "playserver": "OVERLAY",
+            "playchannel": "1",
+            "playlayer": "3",
+            "webplayout": "3",
+            "out": "manual",
+            "dataformat": "json",
+            "uicolor": "3",
+            "DataFields": [
+                {
+                    "ftype": "instruction",
+                    "value": "Muestra el heat actual en vivo con todos sus andariveles, AP, RP y tarjetas oficiales conectado vía SSE."
+                },
+                {
+                    "field": "_POSITION",
+                    "ftype": "dropdown",
+                    "title": "Posición en Pantalla",
+                    "value": "pos-bottom-left",
+                    "items": [
+                        { "text": "Inferior Izquierda (Bottom-Left)", "value": "pos-bottom-left" },
+                        { "text": "Inferior Derecha (Bottom-Right)", "value": "pos-bottom-right" },
+                        { "text": "Superior Izquierda (Top-Left)", "value": "pos-top-left" },
+                        { "text": "Superior Derecha (Top-Right)", "value": "pos-top-right" },
+                        { "text": "Centro Izquierda (Center-Left)", "value": "pos-center-left" },
+                        { "text": "Centro Derecha (Center-Right)", "value": "pos-center-right" },
+                        { "text": "Inferior Centro (Bottom-Center)", "value": "pos-bottom-center" }
+                    ]
+                },
+                {
+                    "field": "_SIZE",
+                    "ftype": "dropdown",
+                    "title": "Tamaño del Recuadro",
+                    "value": "size-standard",
+                    "items": [
+                        { "text": "Compacto (40% pantalla)", "value": "size-compact" },
+                        { "text": "Estándar (50% pantalla)", "value": "size-standard" },
+                        { "text": "Ancho (62% pantalla)", "value": "size-wide" },
+                        { "text": "Completo (75% pantalla)", "value": "size-full" }
+                    ]
+                },
+                {
+                    "field": "f99",
+                    "ftype": "filelist",
+                    "title": "Tema Visual",
+                    "assetfolder": "./themes/",
+                    "extension": "css",
+                    "value": "./themes/Apnea_Broadcast.css"
+                },
+                {
+                    "field": "_API_HOST",
+                    "ftype": "textfield",
+                    "title": "API Host URL (opcional)",
+                    "value": ""
+                }
+            ]
+        };
+    </script>
+</head>
+<body>
+
+    <div class="SPXWindow">
+        <div id="gfx" class="apnea-panel pos-bottom-left size-standard">
+            <!-- Encabezado del Heat -->
+            <div class="apnea-header">
+                <div class="apnea-header-title">
+                    <span class="apnea-badge live-pulse" id="liveBadge">LIVE</span>
+                    <span id="sessionName"></span>
+                </div>
+                <div class="apnea-header-sub">
+                    <span class="apnea-badge ot" id="heatOt"></span>
+                </div>
+            </div>
+
+            <!-- Encabezado de Columnas -->
+            <div class="apnea-table-head">
+                <div class="head-lane"></div>
+                <div class="head-flag"></div>
+                <div class="head-country"></div>
+                <div class="head-athlete"></div>
+                <div class="head-ap">AP</div>
+                <div class="head-rp">RP</div>
+                <div class="head-card"></div>
+            </div>
+
+            <!-- Lista de Carriles / Participantes -->
+            <div id="lanesContainer">
+                <div class="empty-heat-msg">Conectando con el servidor de competencia...</div>
+            </div>
+
+            <!-- Pie de Panel / Footer -->
+            <div class="apnea-footer">
+                <span class="footer-dot"></span>
+                <span class="footer-text">preliminary results</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenedor Oculto de Datos SPX -->
+    <div id="hiddenSpxData">
+        <div id="_POSITION"></div>
+        <div id="_SIZE"></div>
+        <div id="_API_HOST"></div>
+        <div id="f99"></div>
+    </div>
+
+</body>
+</html>

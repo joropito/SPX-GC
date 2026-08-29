@@ -1,0 +1,22 @@
+
+# SPX Rundown item CSV export. (More info: https://docs.spxgraphics.com/Guides/Tutorials/how+to+use+csv+files)
+
+# description #;Title or a headline
+# playserver #;OVERLAY
+# playchannel #;1
+# playlayer #;2
+# webplayout #;2
+# out #;manual
+# uicolor #;3
+# dataformat #;json
+# relpath #;/softpix/html/Template_Pack_1.4.0/TITLE_2_STEPS.html
+# onair #;false
+# project #;MyFirstProject
+# rundown #;MyFirstRundown
+
+# FieldUUIDs #;f0;f1;f99;
+# FieldTypes #;textfield;textfield;filelist;
+# FieldTitls #;Main title;Subtitle;Visual theme;
+# Fieldfcalls #;
+
+# ID:auto;Now click continue;Step two completed!;./themes/Default.css;
