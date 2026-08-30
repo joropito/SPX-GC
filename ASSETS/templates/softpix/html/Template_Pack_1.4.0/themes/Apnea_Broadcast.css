@@ -350,6 +350,14 @@
   animation: apneaPulse 1.4s infinite ease-in-out;
 }
 
+.apnea-badge.page-badge {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--theme-lite-color);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  font-family: 'BLAC';
+  letter-spacing: 0.08em;
+}
+
 @keyframes apneaPulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.6; transform: scale(0.96); }
@@ -368,6 +376,16 @@
   color: var(--theme-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  box-sizing: border-box;
+}
+
+.head-ot {
+  width: 3.8vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex-shrink: 0;
   box-sizing: border-box;
 }
 
@@ -478,6 +496,20 @@
 }
 
 /* Columnas de Datos */
+.apnea-col-ot {
+  width: 3.8vw;
+  font-family: 'BOLD';
+  font-size: 0.9vw;
+  color: var(--theme-accent-gold, #ffd700);
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
 .apnea-col-lane {
   width: 2.2vw;
   font-family: 'BLAC';
@@ -536,6 +568,24 @@
   font-size: 0.95vw;
   color: var(--theme-secondary);
   box-sizing: border-box;
+}
+
+/* Formato Compacto para Tablas de Sesión Completa (hasta 12-16 intentos) */
+.session-table .apnea-row {
+  padding: 0.5vh 0.8vw;
+}
+.session-table .apnea-table-head {
+  padding: 0.4vh 0.8vw;
+}
+.session-table .apnea-col-lane,
+.session-table .apnea-col-ot {
+  font-size: 0.88vw;
+}
+.session-table .apnea-col-country,
+.session-table .apnea-col-athlete,
+.session-table .apnea-col-ap,
+.session-table .apnea-col-rp {
+  font-size: 0.88vw;
 }
 
 .apnea-col-rp {

@@ -1,0 +1,753 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <title>Apnea - Session Overview</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- Scripts Principales -->
+    <script type="text/javascript" src="js/lib/anime.min.js"></script>
+    <script type="text/javascript" src="js/spx_interface.js"></script>
+    <script type="text/javascript" src="js/apnea-helpers.js"></script>
+    
+    <!-- Estilos y Tema Dinámico -->
+    <link rel="stylesheet" type="text/css" href="css/styles.css" />
+    <link rel="stylesheet" type="text/css" href="css/flag-icon.css" />
+    <link rel="stylesheet" type="text/css" id="DynamicTheme" href="themes/Apnea_Broadcast.css" />
+
+    <style>
+        .SPXWindow {
+            position: absolute;
+            width: 100vw;
+            height: 100vh;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        #gfx {
+            position: absolute;
+            opacity: 0; /* Animado por Anime.js */
+            box-sizing: border-box;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            transform-origin: center center;
+            will-change: transform, opacity, clip-path;
+        }
+    </style>
+
+    <script>
+        // Helper local seguro para elementos DOM
+        function e(elementID) {
+            if (!elementID) return null;
+            return document.getElementById(elementID);
+        }
+
+        // Obtener Host de la API
+        function getApiBaseUrl() {
+            const spxHost = e('_API_HOST') ? e('_API_HOST').innerText.trim() : '';
+            if (spxHost !== '') return spxHost.replace(/\/$/, '');
+            
+            if (typeof window !== 'undefined' && window.location) {
+                const urlParams = new URLSearchParams(window.location.search);
+                const queryHost = urlParams.get('api_host') || urlParams.get('host');
+                if (queryHost) return queryHost.replace(/\/$/, '');
+                return `${window.location.protocol}//${window.location.hostname}:9443`;
+            }
+            return 'https://localhost:9443';
+        }
+
+        // Parsear timestamps
+        function parseTimestampMs(str, sessionDate) {
+            if (!str) return 0;
+            if (typeof str === 'number') return str;
+            if (typeof str === 'string') {
+                const parsed = Date.parse(str);
+                if (!isNaN(parsed) && parsed > 0) return parsed;
+
+                const timeMatch = str.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+                if (timeMatch) {
+                    const d = sessionDate ? new Date(sessionDate) : new Date();
+                    d.setHours(parseInt(timeMatch[1], 10), parseInt(timeMatch[2], 10), parseInt(timeMatch[3] || '0', 10), 0);
+                    return d.getTime();
+                }
+            }
+            return 0;
+        }
+
+        // Estado global del Template
+        let appState = {
+            attempts: [],
+            athletes: [],
+            sessions: [],
+            heats: [],
+            competition: {},
+            active_broadcast: {}
+        };
+
+        let isOverlayVisible = false;
+        let eventSource = null;
+        let clockOffset = 0;
+        let liveTickerTimer = null;
+        let paginationInterval = null;
+
+        let currentPageIndex = 0;
+        let totalPages = 1;
+        let currentSessionAttempts = [];
+        let itemsPerPage = 12;
+        let pageDurationMs = 7000;
+        let isTransitioningPage = false;
+        let localAttemptStartMap = new Map();
+
+        // Configuración de visualización desde campos SPX
+        function getItemsPerPageConfig() {
+            const val = e('_ITEMS_PER_PAGE') ? parseInt(e('_ITEMS_PER_PAGE').innerText.trim(), 10) : 12;
+            return (!isNaN(val) && val > 0) ? val : 12;
+        }
+
+        function getPageDurationConfig() {
+            const val = e('_PAGE_DURATION') ? parseFloat(e('_PAGE_DURATION').innerText.trim()) : 7;
+            const sec = (!isNaN(val) && val > 0) ? val : 7;
+            return Math.round(sec * 1000);
+        }
+
+        function applyLayoutConfig() {
+            const gfx = e('gfx');
+            if (!gfx) return;
+
+            const posClass = (e('_POSITION') && e('_POSITION').innerText.trim()) ? e('_POSITION').innerText.trim() : 'pos-bottom-left';
+            const sizeClass = (e('_SIZE') && e('_SIZE').innerText.trim()) ? e('_SIZE').innerText.trim() : 'size-wide';
+
+            // Remover clases previas
+            gfx.classList.remove(
+                'pos-bottom-left', 'pos-bottom-right', 'pos-top-left', 'pos-top-right',
+                'pos-center-left', 'pos-center-right', 'pos-bottom-center',
+                'size-compact', 'size-standard', 'size-wide', 'size-full'
+            );
+
+            gfx.classList.add(posClass, sizeClass);
+            itemsPerPage = getItemsPerPageConfig();
+            pageDurationMs = getPageDurationConfig();
+        }
+
+        // Cargar datos iniciales completos vía API REST
+        async function loadInitialData() {
+            try {
+                const apiBase = getApiBaseUrl();
+                const res = await fetch(`${apiBase}/api/all`, { cache: 'no-store' });
+                if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+                const data = await res.json();
+
+                clockOffset = Date.now() - (data.server_now || Date.now());
+                appState = data;
+
+                syncSessionData();
+            } catch (err) {
+                console.error("Error al cargar datos iniciales:", err);
+                setTimeout(loadInitialData, 3000);
+            }
+        }
+
+        // Configurar conexión SSE en tiempo real
+        function setupLiveUpdates() {
+            if (eventSource) {
+                try { eventSource.close(); } catch (_) {}
+                eventSource = null;
+            }
+
+            const apiBase = getApiBaseUrl();
+            try {
+                eventSource = new EventSource(`${apiBase}/api/live`);
+
+                eventSource.onopen = () => {
+                    loadInitialData();
+                };
+
+                eventSource.onmessage = async (e) => {
+                    if (e.data === 'update' || !e.data || e.data === 'connected') {
+                        try {
+                            const res = await fetch(`${apiBase}/api/all`, { cache: 'no-store' });
+                            if (res.ok) {
+                                const data = await res.json();
+                                clockOffset = Date.now() - (data.server_now || Date.now());
+                                appState = data;
+                                syncSessionData();
+                            }
+                        } catch (err) {
+                            console.error("Error actualizando estado por SSE:", err);
+                        }
+                    }
+                };
+
+                eventSource.onerror = () => {
+                    console.warn("SSE reconectando...");
+                };
+            } catch (err) {
+                console.error("Error conectando SSE:", err);
+            }
+        }
+
+        // Obtener información de la Sesión Activa e intentos correspondientes
+        function getActiveSessionInfo() {
+            if (!appState || (!appState.sessions && !appState.heats) || !appState.attempts) return null;
+
+            const activeBroadcast = appState.active_broadcast || {};
+            let activeSessionId = activeBroadcast.session_id || "";
+
+            const sessionsList = appState.sessions || appState.heats || [];
+            let activeSession = sessionsList.find(s => (s.session_id === activeSessionId || s.heat_id === activeSessionId));
+
+            if (!activeSession && sessionsList.length > 0) {
+                activeSession = sessionsList.find(s => s.status !== 'closed') || sessionsList[0];
+                activeSessionId = activeSession.session_id || activeSession.heat_id;
+            }
+
+            if (!activeSession) return null;
+
+            const sessionAttempts = (appState.attempts || []).filter(att => 
+                att.session_id === activeSessionId || att.heat_id === activeSessionId
+            );
+
+            // Ordenar intentos cronológicamente por OT y luego por carril (lane)
+            sessionAttempts.sort((a, b) => {
+                const otA = (a.attemp_ot || '').trim();
+                const otB = (b.attemp_ot || '').trim();
+                if (otA !== otB) return otA.localeCompare(otB);
+                return parseInt(a.attemp_lane || 0, 10) - parseInt(b.attemp_lane || 0, 10);
+            });
+
+            return {
+                session: activeSession,
+                sessionId: activeSessionId,
+                sessionName: activeSession.session_name || activeSession.name || 'SESIÓN ACTIVA',
+                sessionDate: activeSession.session_date,
+                discipline: (activeSession.session_discipline || activeSession.discipline || "STA").toUpperCase(),
+                attempts: sessionAttempts
+            };
+        }
+
+        // Sincronizar datos y páginas de la sesión
+        function syncSessionData() {
+            const sessionInfo = getActiveSessionInfo();
+            if (!sessionInfo) return;
+
+            currentSessionAttempts = sessionInfo.attempts;
+            itemsPerPage = getItemsPerPageConfig();
+            totalPages = Math.max(1, Math.ceil(currentSessionAttempts.length / itemsPerPage));
+
+            if (currentPageIndex >= totalPages) {
+                currentPageIndex = 0;
+            }
+
+            // Actualizar encabezados con los datos de la sesión activa
+            if (e('sessionDiscipline')) e('sessionDiscipline').innerText = sessionInfo.discipline;
+            if (e('sessionTitle')) e('sessionTitle').innerText = sessionInfo.sessionName;
+            
+            updatePageBadge();
+
+            // Renderizar la página actual si no está en medio de una transición
+            if (!isTransitioningPage) {
+                renderPageRows(currentPageIndex);
+            }
+        }
+
+        function updatePageBadge() {
+            const badge = e('sessionPageBadge');
+            if (!badge) return;
+            if (totalPages > 1) {
+                badge.innerText = `PÁG ${currentPageIndex + 1}/${totalPages}`;
+                badge.style.display = 'inline-flex';
+            } else {
+                badge.innerText = `TOTAL: ${currentSessionAttempts.length}`;
+                badge.style.display = 'inline-flex';
+            }
+        }
+
+        // Renderizar las filas de una página específica
+        function renderPageRows(pageIdx) {
+            const container = e('lanesContainer');
+            if (!container) return;
+
+            const sessionInfo = getActiveSessionInfo();
+            if (!sessionInfo) {
+                container.innerHTML = '<div class="empty-heat-msg">No hay sesión activa disponible</div>';
+                return;
+            }
+
+            const athletesList = appState.athletes || [];
+            const isDynamic = ['DYN', 'DYNB', 'DNF'].includes(sessionInfo.discipline);
+            const nowMs = Date.now() - clockOffset;
+
+            const startIdx = pageIdx * itemsPerPage;
+            const pageAttempts = currentSessionAttempts.slice(startIdx, startIdx + itemsPerPage);
+
+            if (pageAttempts.length === 0) {
+                container.innerHTML = '<div class="empty-heat-msg">No hay intentos registrados en esta sesión</div>';
+                return;
+            }
+
+            let html = '';
+            pageAttempts.forEach(att => {
+                const lane = att.attemp_lane || '-';
+                const ot = att.attemp_ot || '-';
+                const athlete = athletesList.find(a => a.athlete_id === att.athlete_id) || {};
+                const name = athlete.athlete_name || att.athlete_name || 'Atleta';
+                const country = (athlete.athlete_country || att.athlete_country || '').toUpperCase();
+                const flagClass = country ? `flag-icon flag-icon-${country.toLowerCase()}` : '';
+
+                const isJudged = att.attemp_status === 'JUDGED' || att.attemp_status === 'DQ' || Boolean(att.attemp_card) || att.attemp_status === 'DNS';
+                const isPerforming = att.attemp_status === 'PERFORMING';
+                const cardInfo = getAttemptCardAndNotes(att, isJudged, nowMs, appState.competition, clockOffset);
+
+                // Resultado AP
+                const apFormatted = formatMetric(att.attemp_ap, sessionInfo.discipline);
+
+                // Resultado RP
+                let rpFormatted = '-';
+                let rpLiveClass = '';
+                if (isJudged) {
+                    if (att.attemp_card === 'red' || att.attemp_status === 'DQ') rpFormatted = 'DQ';
+                    else if (att.attemp_card === 'dns' || att.attemp_status === 'DNS') rpFormatted = 'DNS';
+                    else rpFormatted = formatMetric(att.official_result || att.attemp_rp, sessionInfo.discipline);
+                } else if (isPerforming) {
+                    rpLiveClass = 'is-live';
+                    rpFormatted = att.preliminary_result || '00:00';
+                }
+
+                const rowPerformingClass = isPerforming ? 'is-performing' : '';
+
+                html += `
+                <div class="apnea-row ${rowPerformingClass}" id="session-row-${att.attemp_id}">
+                    <div class="apnea-col-ot">${htmlDecode(ot)}</div>
+                    <div class="apnea-col-lane">${htmlDecode(String(lane))}</div>
+                    <div class="apnea-col-flag"><span class="${flagClass}" title="${country}"></span></div>
+                    <div class="apnea-col-country">${htmlDecode(country)}</div>
+                    <div class="apnea-col-athlete" title="${htmlDecode(name)}">${htmlDecode(name)}</div>
+                    <div class="apnea-col-ap">${htmlDecode(apFormatted)}</div>
+                    <div class="apnea-col-rp ${rpLiveClass}" id="session-rp-${att.attemp_id}">${htmlDecode(rpFormatted)}</div>
+                    <div class="apnea-col-card">
+                        <span class="card-indicator ${cardInfo.cardClass}" id="session-card-${att.attemp_id}"></span>
+                    </div>
+                    <div class="apnea-col-notes" id="session-notes-${att.attemp_id}">${cardInfo.noteHtml}</div>
+                </div>`;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Ticker de valores en vivo para la página activa
+        function startLiveTicker() {
+            if (liveTickerTimer) clearInterval(liveTickerTimer);
+            liveTickerTimer = setInterval(tickLiveValues, 200);
+        }
+
+        function stopLiveTicker() {
+            if (liveTickerTimer) {
+                clearInterval(liveTickerTimer);
+                liveTickerTimer = null;
+            }
+        }
+
+        function tickLiveValues() {
+            if (!isOverlayVisible || isTransitioningPage) return;
+
+            const sessionInfo = getActiveSessionInfo();
+            if (!sessionInfo) return;
+
+            const nowMs = Date.now() - clockOffset;
+            const startIdx = currentPageIndex * itemsPerPage;
+            const pageAttempts = currentSessionAttempts.slice(startIdx, startIdx + itemsPerPage);
+            const isDynamic = ['DYN', 'DYNB', 'DNF'].includes(sessionInfo.discipline);
+            const athletesList = appState.athletes || [];
+
+            pageAttempts.forEach(att => {
+                const rpEl = e(`session-rp-${att.attemp_id}`);
+                const cardEl = e(`session-card-${att.attemp_id}`);
+                const notesEl = e(`session-notes-${att.attemp_id}`);
+                const rowEl = e(`session-row-${att.attemp_id}`);
+                if (!rpEl) return;
+
+                const isJudged = att.attemp_status === 'JUDGED' || att.attemp_status === 'DQ' || Boolean(att.attemp_card) || att.attemp_status === 'DNS';
+                const isPerforming = att.attemp_status === 'PERFORMING';
+                const cardInfo = getAttemptCardAndNotes(att, isJudged, nowMs, appState.competition, clockOffset);
+
+                if (rowEl) {
+                    if (isPerforming) rowEl.classList.add('is-performing');
+                    else rowEl.classList.remove('is-performing');
+                }
+
+                if (cardEl) {
+                    cardEl.className = `card-indicator ${cardInfo.cardClass}`;
+                }
+
+                if (notesEl) {
+                    notesEl.innerHTML = cardInfo.noteHtml;
+                }
+
+                if (isJudged) {
+                    rpEl.classList.remove('is-live');
+                    let resultDisplay = '';
+                    if (att.attemp_card === 'red' || att.attemp_status === 'DQ') resultDisplay = 'DQ';
+                    else if (att.attemp_card === 'dns' || att.attemp_status === 'DNS') resultDisplay = 'DNS';
+                    else resultDisplay = formatMetric(att.official_result || att.attemp_rp, sessionInfo.discipline);
+                    rpEl.innerHTML = htmlDecode(resultDisplay);
+                } else if (isPerforming) {
+                    rpEl.classList.add('is-live');
+                    if (isDynamic) {
+                        const athlete = athletesList.find(a => a.athlete_id === att.athlete_id) || {};
+                        const attemptForCalc = {
+                            ...att,
+                            athlete_country: athlete.athlete_country || att.athlete_country || '',
+                            athlete_name: athlete.athlete_name || att.athlete_name || ''
+                        };
+                        const estimatedMeters = calculateLiveDynamicDistance(
+                            attemptForCalc,
+                            appState.competition,
+                            nowMs,
+                            true
+                        );
+                        rpEl.innerHTML = `${estimatedMeters} m`;
+                    } else {
+                        // STA: Cálculo horario local
+                        let rawStartTime = att.started_at || att.start_time || att.performance_started_at || att.timestamp || att.locked_at;
+                        if (!rawStartTime && Array.isArray(att.judge_updates) && att.judge_updates.length > 0) {
+                            const startEv = att.judge_updates.find(u => u.event_type === 'START' || u.type === 'START') || att.judge_updates[0];
+                            if (startEv) rawStartTime = startEv.timestamp || startEv.time;
+                        }
+
+                        const attemptKey = att.attemp_id || `lane_${att.attemp_lane || 1}`;
+                        let startMs = parseTimestampMs(rawStartTime, sessionInfo.sessionDate);
+                        if (startMs === 0) {
+                            if (!localAttemptStartMap.has(attemptKey)) {
+                                localAttemptStartMap.set(attemptKey, nowMs);
+                            }
+                            startMs = localAttemptStartMap.get(attemptKey);
+                        }
+
+                        const elapsedSec = Math.max(0, (nowMs - startMs) / 1000);
+                        const mins = Math.floor(elapsedSec / 60);
+                        const secs = Math.floor(elapsedSec % 60);
+                        rpEl.innerHTML = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                    }
+                }
+            });
+        }
+
+        // Temporizador de Paginación Automática
+        function startPaginationTimer() {
+            stopPaginationTimer();
+            if (totalPages <= 1) return;
+
+            paginationInterval = setInterval(() => {
+                if (!isOverlayVisible) return;
+                const nextIdx = (currentPageIndex + 1) % totalPages;
+                animatePageTransition(nextIdx);
+            }, pageDurationMs);
+        }
+
+        function stopPaginationTimer() {
+            if (paginationInterval) {
+                clearInterval(paginationInterval);
+                paginationInterval = null;
+            }
+        }
+
+        // Transición de página con barrido horizontal en filas de celdas
+        function animatePageTransition(nextIdx) {
+            if (isTransitioningPage) return;
+            isTransitioningPage = true;
+
+            // 1. Barrido de salida hacia la derecha
+            anime({
+                targets: '.apnea-row',
+                translateX: [0, 40],
+                opacity: [1, 0],
+                easing: 'easeInQuad',
+                duration: 180,
+                delay: anime.stagger(12),
+                complete: function() {
+                    currentPageIndex = nextIdx;
+                    updatePageBadge();
+                    renderPageRows(currentPageIndex);
+
+                    // 2. Barrido de entrada desde la izquierda
+                    anime({
+                        targets: '.apnea-row',
+                        translateX: [-40, 0],
+                        opacity: [0, 1],
+                        easing: 'easeOutCubic',
+                        duration: 220,
+                        delay: anime.stagger(16),
+                        complete: function() {
+                            isTransitioningPage = false;
+                        }
+                    });
+                }
+            });
+        }
+
+        // =========================================================
+        // HANDLERS SPX (runTemplateUpdate, runAnimationIN, runAnimationOUT)
+        // =========================================================
+        function runTemplateUpdate() {
+            if (e('DynamicTheme') && e('f99') && e('f99').innerText.trim() !== '') {
+                e('DynamicTheme').href = e('f99').innerText.trim();
+            }
+
+            applyLayoutConfig();
+
+            if (!eventSource) {
+                setupLiveUpdates();
+            }
+
+            startLiveTicker();
+            runAnimationIN();
+        }
+
+        // Animación de entrada: Cortina que baja desde arriba
+        function runAnimationIN() {
+            isOverlayVisible = true;
+            if (window.spxSetState) window.spxSetState('PLAYING');
+
+            anime.remove('#gfx');
+            anime.remove('.apnea-row');
+
+            // Renderizar primera página fresca
+            currentPageIndex = 0;
+            syncSessionData();
+
+            // Preparar estado inicial para apertura de cortina desde arriba hacia abajo
+            anime.set('#gfx', {
+                opacity: 1,
+                clipPath: 'inset(0% 0% 100% 0%)'
+            });
+
+            anime.set('.apnea-row', {
+                opacity: 0,
+                translateX: -30
+            });
+
+            var tl = anime.timeline({
+                easing: 'easeOutCubic',
+                complete: function() {
+                    if (window.spxSetState) window.spxSetState('PLAYING');
+                    startPaginationTimer();
+                }
+            });
+
+            // Apertura de cortina vertical
+            tl.add({
+                targets: '#gfx',
+                clipPath: ['inset(0% 0% 100% 0%)', 'inset(0% 0% 0% 0%)'],
+                duration: 480
+            }, 0)
+            // Entrada con barrido de filas iniciales
+            .add({
+                targets: '.apnea-row',
+                opacity: [0, 1],
+                translateX: [-30, 0],
+                duration: 260,
+                delay: anime.stagger(22)
+            }, 120);
+        }
+
+        // Animación de salida: Cortina que sube de abajo hacia arriba (invertido)
+        function runAnimationOUT() {
+            stopPaginationTimer();
+
+            if (!isOverlayVisible) {
+                if (window.spxSetState) window.spxSetState('STOPPED');
+                return;
+            }
+
+            isOverlayVisible = false;
+            if (window.spxSetState) window.spxSetState('STOPPING');
+
+            anime.remove(['#gfx', '.apnea-row']);
+
+            var tl = anime.timeline({
+                easing: 'easeInCubic',
+                complete: function() {
+                    anime.set('#gfx', { opacity: 0, clipPath: 'inset(0% 0% 100% 0%)' });
+                    if (window.spxSetState) window.spxSetState('STOPPED');
+                }
+            });
+
+            // Desvanecer filas rápidamente
+            tl.add({
+                targets: '.apnea-row',
+                opacity: 0,
+                duration: 140
+            }, 0)
+            // Cierre de cortina vertical de abajo hacia arriba
+            .add({
+                targets: '#gfx',
+                clipPath: ['inset(0% 0% 0% 0%)', 'inset(100% 0% 0% 0%)'],
+                opacity: 0,
+                duration: 320
+            }, 60);
+        }
+
+        // Inicialización en carga DOM
+        window.addEventListener('DOMContentLoaded', () => {
+            try {
+                applyLayoutConfig();
+                loadInitialData();
+                setupLiveUpdates();
+                startLiveTicker();
+
+                if (typeof window !== 'undefined' && window.location && window.location.search) {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    if (urlParams.has('autostart') || urlParams.has('live') || urlParams.has('show')) {
+                        setTimeout(runAnimationIN, 150);
+                    }
+                }
+            } catch (err) {
+                console.error("Error en inicialización SESSION_OVERVIEW:", err);
+            }
+        });
+
+        // =========================================================
+        // DEFINICIÓN DE METADATOS SPX (SPXGCTemplateDefinition)
+        // =========================================================
+        window.SPXGCTemplateDefinition = {
+            "description": "Session Overview (Full Session with Auto-Pagination)",
+            "playserver": "OVERLAY",
+            "playchannel": "1",
+            "playlayer": "3",
+            "webplayout": "3",
+            "out": "manual",
+            "dataformat": "json",
+            "uicolor": "4",
+            "DataFields": [
+                {
+                    "ftype": "instruction",
+                    "value": "Muestra la lista completa de intentos de la sesión activa con paginación automática, columna OT y transiciones de cortina."
+                },
+                {
+                    "field": "_ITEMS_PER_PAGE",
+                    "ftype": "dropdown",
+                    "title": "Intentos por Página",
+                    "value": "12",
+                    "items": [
+                        { "text": "8 intentos por página", "value": "8" },
+                        { "text": "10 intentos por página", "value": "10" },
+                        { "text": "12 intentos por página (Recomendado)", "value": "12" },
+                        { "text": "14 intentos por página", "value": "14" },
+                        { "text": "16 intentos por página", "value": "16" }
+                    ]
+                },
+                {
+                    "field": "_PAGE_DURATION",
+                    "ftype": "dropdown",
+                    "title": "Tiempo Visible por Página",
+                    "value": "7",
+                    "items": [
+                        { "text": "5 Segundos", "value": "5" },
+                        { "text": "7 Segundos (Recomendado)", "value": "7" },
+                        { "text": "10 Segundos", "value": "10" },
+                        { "text": "15 Segundos", "value": "15" },
+                        { "text": "20 Segundos", "value": "20" }
+                    ]
+                },
+                {
+                    "field": "_POSITION",
+                    "ftype": "dropdown",
+                    "title": "Posición en Pantalla",
+                    "value": "pos-bottom-left",
+                    "items": [
+                        { "text": "Inferior Izquierda (Bottom-Left)", "value": "pos-bottom-left" },
+                        { "text": "Inferior Derecha (Bottom-Right)", "value": "pos-bottom-right" },
+                        { "text": "Superior Izquierda (Top-Left)", "value": "pos-top-left" },
+                        { "text": "Superior Derecha (Top-Right)", "value": "pos-top-right" },
+                        { "text": "Centro Izquierda (Center-Left)", "value": "pos-center-left" },
+                        { "text": "Centro Derecha (Center-Right)", "value": "pos-center-right" },
+                        { "text": "Inferior Centro (Bottom-Center)", "value": "pos-bottom-center" }
+                    ]
+                },
+                {
+                    "field": "_SIZE",
+                    "ftype": "dropdown",
+                    "title": "Tamaño del Recuadro",
+                    "value": "size-wide",
+                    "items": [
+                        { "text": "Compacto (40% pantalla)", "value": "size-compact" },
+                        { "text": "Estándar (50% pantalla)", "value": "size-standard" },
+                        { "text": "Ancho (62% pantalla)", "value": "size-wide" },
+                        { "text": "Completo (75% pantalla)", "value": "size-full" }
+                    ]
+                },
+                {
+                    "field": "f99",
+                    "ftype": "filelist",
+                    "title": "Tema Visual",
+                    "assetfolder": "./themes/",
+                    "extension": "css",
+                    "value": "./themes/Apnea_Broadcast.css"
+                },
+                {
+                    "field": "_API_HOST",
+                    "ftype": "textfield",
+                    "title": "API Host URL (opcional)",
+                    "value": ""
+                }
+            ]
+        };
+    </script>
+</head>
+<body>
+
+    <div class="SPXWindow">
+        <div id="gfx" class="apnea-panel session-table pos-bottom-left size-wide">
+            <!-- Encabezado de la Sesión -->
+            <div class="apnea-header">
+                <div class="apnea-header-title">
+                    <span class="apnea-badge live-pulse" id="liveBadge">LIVE</span>
+                    <span id="sessionTitle">SESIÓN ACTIVA</span>
+                </div>
+                <div class="apnea-header-sub">
+                    <span class="apnea-badge discipline" id="sessionDiscipline">STA</span>
+                    <span class="apnea-badge page-badge" id="sessionPageBadge">PÁG 1/1</span>
+                </div>
+            </div>
+
+            <!-- Encabezado de Columnas con OT -->
+            <div class="apnea-table-head">
+                <div class="head-ot">OT</div>
+                <div class="head-lane">LANE</div>
+                <div class="head-flag"></div>
+                <div class="head-country"></div>
+                <div class="head-athlete">ATLETA</div>
+                <div class="head-ap">AP</div>
+                <div class="head-rp">RP</div>
+                <div class="head-card"></div>
+                <div class="head-notes">NOTAS</div>
+            </div>
+
+            <!-- Lista de Filas Pagina Activa -->
+            <div id="lanesContainer">
+                <div class="empty-heat-msg">Cargando sesión completa...</div>
+            </div>
+
+            <!-- Pie de Panel / Footer -->
+            <div class="apnea-footer">
+                <span class="footer-dot"></span>
+                <span class="footer-text">official start list & live results</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenedor Oculto de Datos SPX -->
+    <div id="hiddenSpxData">
+        <div id="_ITEMS_PER_PAGE"></div>
+        <div id="_PAGE_DURATION"></div>
+        <div id="_POSITION"></div>
+        <div id="_SIZE"></div>
+        <div id="_API_HOST"></div>
+        <div id="f99"></div>
+    </div>
+
+</body>
+</html>
