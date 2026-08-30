@@ -164,9 +164,7 @@
 }
 
 .card-dns {
-  background: var(--theme-card-dns);
-  opacity: 0.6;
-  border: 1px solid #8899aa;
+  display: none !important;
 }
 
 .card-sp {
@@ -191,8 +189,89 @@
 }
 
 /* =========================================================
-   ESTILOS COMPARTIDOS PARA OVERLAYS DE COMPETENCIA Y HEAT
+   CLASES DE POSICIONAMIENTO CONFIGURABLES DESDE SPX
    ========================================================= */
+.pos-bottom-left {
+  bottom: 4.5vh;
+  left: 3vw;
+  top: auto;
+  right: auto;
+  transform-origin: bottom left;
+}
+.pos-bottom-right {
+  bottom: 4.5vh;
+  right: 3vw;
+  left: auto;
+  top: auto;
+  transform-origin: bottom right;
+}
+.pos-top-left {
+  top: 12vh;
+  left: 6vw;
+  bottom: auto;
+  right: auto;
+  transform-origin: top left;
+}
+.pos-top-right {
+  top: 4vh;
+  right: 3vw;
+  bottom: auto;
+  left: auto;
+  transform-origin: top right;
+}
+.pos-center-left {
+  top: 50%;
+  left: 3vw;
+  transform: translateY(-50%);
+  transform-origin: center left;
+}
+.pos-center-right {
+  top: 50%;
+  right: 3vw;
+  transform: translateY(-50%);
+  transform-origin: center right;
+}
+.pos-bottom-center {
+  bottom: 4.5vh;
+  left: 50%;
+  transform: translateX(-50%);
+  transform-origin: bottom center;
+}
+
+/* =========================================================
+   CLASES DE TAMAÑO / ESCALA CONFIGURABLES DESDE SPX
+   ========================================================= */
+.size-compact {
+  width: 40vw;
+  font-size: 0.9em;
+}
+.size-standard {
+  width: 50vw;
+  font-size: 1em;
+}
+.size-wide {
+  width: 62vw;
+  font-size: 1.05em;
+}
+.size-full {
+  width: 75vw;
+  font-size: 1.1em;
+}
+
+/* Contenedor de Filas y Mensaje Vacío */
+#lanesContainer {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.empty-heat-msg {
+  padding: 2vh 1vw;
+  text-align: center;
+  font-family: 'REGU';
+  font-size: 0.9vw;
+  color: var(--theme-secondary);
+}
 
 /* Contenedor tipo Tarjeta Neón */
 .apnea-panel {
@@ -276,6 +355,79 @@
   50% { opacity: 0.6; transform: scale(0.96); }
 }
 
+/* Encabezado de Columnas de la Tabla */
+.apnea-table-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 0.5vh 1vw;
+  background: rgba(4, 12, 30, 0.7);
+  border-bottom: 1px solid var(--theme-border-subtle);
+  font-family: 'BOLD';
+  font-size: 0.75vw;
+  color: var(--theme-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-sizing: border-box;
+}
+
+.head-lane {
+  width: 2.2vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.head-flag {
+  width: 1.8vw;
+  margin-right: 0.4vw;
+  flex-shrink: 0;
+}
+
+.head-country {
+  width: 2.8vw;
+  margin-right: 0.4vw;
+  flex-shrink: 0;
+}
+
+.head-athlete {
+  flex-grow: 1;
+  padding-right: 0.6vw;
+}
+
+.head-ap,
+.head-rp {
+  width: 5.5vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.head-card {
+  width: 1.8vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.head-notes {
+  width: 7.5vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  padding: 0 0.2vw;
+}
+
 /* Filas de Atletas / Carriles */
 .apnea-row {
   display: flex;
@@ -332,6 +484,9 @@
   font-size: 1vw;
   color: var(--theme-brandColor);
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
 
@@ -347,7 +502,7 @@
 }
 
 .apnea-col-country {
-  width: 3vw;
+  width: 2.8vw;
   display: flex;
   align-items: center;
   font-family: 'BOLD';
@@ -371,8 +526,11 @@
 
 .apnea-col-ap,
 .apnea-col-rp {
-  width: 6vw;
+  width: 5.5vw;
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
   font-family: 'REGU';
   font-size: 0.95vw;
@@ -400,10 +558,11 @@
 }
 
 .apnea-col-notes {
-  width: 5.5vw;
+  width: 7.5vw;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: left;
+  justify-content: left;
+  text-align: left;
   flex-shrink: 0;
   box-sizing: border-box;
   overflow: hidden;
@@ -430,7 +589,7 @@
   line-height: 1;
 }
 
-/* Nota Durante la Prueba (PRELIM.) */
+/* Nota Durante la Prueba (PRELIM.) - Color actual */
 .note-badge.note-prelim {
   color: var(--theme-secondary);
   text-shadow: none !important;
@@ -440,7 +599,7 @@
   opacity: 0.9;
 }
 
-/* Nota SP (Surface Protocol) - Formato SP ss */
+/* Nota SP (Surface Protocol) - Formato SP ss - Color actual (Cian) */
 .note-badge.note-sp {
   color: var(--theme-brandColor);
   text-shadow: none !important;
@@ -449,18 +608,33 @@
   letter-spacing: 0.05em;
 }
 
-/* Nota Récord (WR, CR, NR, PB) */
+/* Nota por Tarjeta Blanca (Coincide con color de Tarjeta Blanca: Blanco #ffffff) */
+.note-badge.note-white,
 .note-badge.note-record {
-  color: #ffd700;
+  color: #ffffff !important;
   text-shadow: none !important;
   font-family: 'BLAC', sans-serif;
   font-size: 0.85vw;
   letter-spacing: 0.06em;
 }
 
-/* Nota Descalificación (Motivo DQ) */
+/* Nota por Tarjeta Amarilla (Coincide con color de Tarjeta Amarilla: Amarillo #ffd700) */
+.note-badge.note-yellow,
+.note-badge.note-penalty {
+  color: #ffd700 !important;
+  text-shadow: none !important;
+  font-family: 'BOLD', sans-serif;
+  font-size: 0.75vw;
+  letter-spacing: 0.03em;
+  max-width: 5.5vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Nota por Tarjeta Roja / DQ (Coincide con color de Tarjeta Roja: Rojo #ff3b5c) */
+.note-badge.note-red,
 .note-badge.note-dq {
-  color: #ff3b5c;
+  color: #ff3b5c !important;
   text-shadow: none !important;
   font-family: 'BOLD', sans-serif;
   font-size: 0.75vw;

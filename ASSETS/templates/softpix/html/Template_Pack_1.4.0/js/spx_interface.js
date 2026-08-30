@@ -2,6 +2,30 @@
 // (c) Copyright 2021- SPX Graphics (https://spxgraphics.com)
 // ----------------------------------------------------------------
 
+// Estado interno global de reproducción del template
+window.SPX_STATE = 'STOPPED'; // 'STOPPED' | 'PLAYING' | 'STOPPING'
+window.SPX_STOP_SAFETY_TIMER = null;
+
+window.spxGetState = function() {
+  return window.SPX_STATE || 'STOPPED';
+};
+
+window.spxIsPlaying = function() {
+  return window.SPX_STATE === 'PLAYING';
+};
+
+window.spxIsStopped = function() {
+  return window.SPX_STATE === 'STOPPED';
+};
+
+window.spxSetState = function(newState) {
+  window.SPX_STATE = newState;
+  if (newState === 'STOPPED' && window.SPX_STOP_SAFETY_TIMER) {
+    clearTimeout(window.SPX_STOP_SAFETY_TIMER);
+    window.SPX_STOP_SAFETY_TIMER = null;
+  }
+};
+
 // Receive item data from SPX Graphics Controller
 // and store values in hidden DOM elements for
 // use in the template.
@@ -30,6 +54,9 @@ function update(data) {
     }
   }
 
+  // Marcar como PLAYING antes de ejecutar el update
+  window.spxSetState('PLAYING');
+
   if (typeof runTemplateUpdate === "function") { 
     runTemplateUpdate() // Play will follow
   } else {
@@ -40,20 +67,33 @@ function update(data) {
 // Play handler
 function play() {
   // console.log('----- Play handler called.')
-  // if (typeof runAnimationIN === "function") { 
-  //   runAnimationIN()
-  // } else {
-  //   console.error('runAnimationIN() function missing from SPX template.')
-  // }
+  window.spxSetState('PLAYING');
+  if (typeof runAnimationIN === "function") { 
+    runAnimationIN();
+  }
 }
 
-// Stop handler
+// Stop handler con protección contra ejecuciones repetidas
 function stop() {
-  // console.log('----- Stop handler called.')
+  // Si ya está detenido o en proceso de detención, ignorar comandos repetidos
+  if (window.SPX_STATE === 'STOPPED' || window.SPX_STATE === 'STOPPING') {
+    // console.warn('[SPX] stop() ignorado: el template ya está ' + window.SPX_STATE);
+    return;
+  }
+
+  window.spxSetState('STOPPING');
+
+  // Temporizador de seguridad: si la plantilla no reporta STOPPED en 1.5s, forzar STOPPED
+  if (window.SPX_STOP_SAFETY_TIMER) clearTimeout(window.SPX_STOP_SAFETY_TIMER);
+  window.SPX_STOP_SAFETY_TIMER = setTimeout(function() {
+    window.spxSetState('STOPPED');
+  }, 1500);
+
   if (typeof runAnimationOUT === "function") { 
-    runAnimationOUT()
+    runAnimationOUT();
   } else {
-    console.error('runAnimationOUT() function missing from SPX template.')
+    console.error('runAnimationOUT() function missing from SPX template.');
+    window.spxSetState('STOPPED');
   }
 }
 

@@ -35,233 +35,6 @@
             transform-origin: center center;
             will-change: transform, opacity;
         }
-
-        /* =========================================================
-           CLASES DE POSICIONAMIENTO CONFIGURABLES DESDE SPX
-           ========================================================= */
-        .pos-bottom-left {
-            bottom: 4.5vh;
-            left: 3vw;
-            top: auto;
-            right: auto;
-            transform-origin: bottom left;
-        }
-        .pos-bottom-right {
-            bottom: 4.5vh;
-            right: 3vw;
-            left: auto;
-            top: auto;
-            transform-origin: bottom right;
-        }
-        .pos-top-left {
-            top: 12vh;
-            left: 6vw;
-            bottom: auto;
-            right: auto;
-            transform-origin: top left;
-        }
-        .pos-top-right {
-            top: 4vh;
-            right: 3vw;
-            bottom: auto;
-            left: auto;
-            transform-origin: top right;
-        }
-        .pos-center-left {
-            top: 50%;
-            left: 3vw;
-            transform: translateY(-50%);
-            transform-origin: center left;
-        }
-        .pos-center-right {
-            top: 50%;
-            right: 3vw;
-            transform: translateY(-50%);
-            transform-origin: center right;
-        }
-        .pos-bottom-center {
-            bottom: 4.5vh;
-            left: 50%;
-            transform: translateX(-50%);
-            transform-origin: bottom center;
-        }
-
-        /* =========================================================
-           CLASES DE TAMAÑO / ESCALA CONFIGURABLES DESDE SPX
-           ========================================================= */
-        .size-compact {
-            width: 40vw;
-            font-size: 0.9em;
-        }
-        .size-standard {
-            width: 50vw;
-            font-size: 1em;
-        }
-        .size-wide {
-            width: 62vw;
-            font-size: 1.05em;
-        }
-        .size-full {
-            width: 75vw;
-            font-size: 1.1em;
-        }
-
-        /* Columnas de Encabezado */
-        .apnea-table-head {
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            padding: 0.5vh 1vw;
-            background: rgba(4, 12, 30, 0.7);
-            border-bottom: 1px solid var(--theme-border-subtle);
-            font-family: 'BOLD';
-            font-size: 0.75vw;
-            color: var(--theme-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .head-lane { width: 2.2vw; text-align: center; }
-        .head-flag { width: 1.8vw; text-align: center; }
-        .head-country { width: 2.8vw; }
-        .head-athlete { flex-grow: 1; padding-left: 0.2vw; }
-        .head-ap { width: 5.5vw; text-align: center; }
-        .head-rp { width: 5.5vw; text-align: center; }
-        .head-card { width: 1.8vw; text-align: center; }
-        .head-notes { width: 5.5vw; text-align: center; }
-
-        .apnea-col-notes {
-            width: 5.5vw;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            box-sizing: border-box;
-            overflow: hidden;
-            padding: 0 0.2vw;
-        }
-
-        /* Textos y Badges para Columna de Notas (Sin recuadros, sin resplandor, tipografía broadcast nítida) */
-        .note-badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: transparent !important;
-            border: none !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            text-shadow: none !important;
-            filter: none !important;
-            padding: 0 !important;
-            font-family: 'BLAC', sans-serif;
-            font-size: 0.85vw;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            white-space: nowrap;
-            line-height: 1;
-        }
-
-        /* Nota Durante la Prueba (PRELIM.) */
-        .note-badge.note-prelim {
-            color: var(--theme-secondary);
-            text-shadow: none !important;
-            font-family: 'BOLD', sans-serif;
-            font-size: 0.75vw;
-            letter-spacing: 0.05em;
-            opacity: 0.9;
-        }
-
-        /* Nota SP (Surface Protocol) - Formato SP ss */
-        .note-badge.note-sp {
-            color: var(--theme-brandColor);
-            text-shadow: none !important;
-            font-family: 'BLAC', sans-serif;
-            font-size: 0.85vw;
-            letter-spacing: 0.05em;
-        }
-
-        /* Nota Récord (WR, CR, NR, PB) */
-        .note-badge.note-record {
-            color: #ffd700;
-            text-shadow: none !important;
-            font-family: 'BLAC', sans-serif;
-            font-size: 0.85vw;
-            letter-spacing: 0.06em;
-        }
-
-        /* Nota Descalificación (Motivo DQ) */
-        .note-badge.note-dq {
-            color: #ff3b5c;
-            text-shadow: none !important;
-            font-family: 'BOLD', sans-serif;
-            font-size: 0.75vw;
-            letter-spacing: 0.03em;
-            max-width: 5.5vw;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        /* Contenedor de Filas */
-        #lanesContainer {
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-        }
-
-        .empty-heat-msg {
-            padding: 2vh 1vw;
-            text-align: center;
-            font-family: 'REGU';
-            font-size: 0.9vw;
-            color: var(--theme-secondary);
-        }
-
-        /* Pie de Panel / Footer */
-        .apnea-footer {
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            justify-content: center;
-            gap: 0.4vw;
-            padding: 0.45vh 1vw;
-            background: rgba(3, 10, 24, 0.85);
-            border-top: 1px solid var(--theme-border-subtle);
-            box-sizing: border-box;
-        }
-
-        .apnea-footer .footer-dot {
-            width: 0.35vw;
-            height: 0.35vw;
-            border-radius: 50%;
-            background: var(--theme-brandColor);
-            box-shadow: 0 0 0.4vw var(--theme-brandColor-glow);
-        }
-
-        .apnea-footer .footer-text {
-            font-family: 'BOLD';
-            font-size: 0.7vw;
-            color: var(--theme-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.12em;
-            opacity: 0.85;
-        }
-
-        .card-sp {
-            display: inline-flex !important;
-            align-items: center;
-            justify-content: center;
-            width: 1.5vw !important;
-            height: 1.6vh !important;
-            border-radius: 0.2vw !important;
-            font-family: 'BLAC', sans-serif !important;
-            font-size: 0.65vw !important;
-            letter-spacing: 0.05em;
-            background: rgba(0, 229, 255, 0.25) !important;
-            color: var(--theme-brandColor) !important;
-            border: 1px solid var(--theme-brandColor) !important;
-            box-shadow: 0 0 0.6vw var(--theme-brandColor-glow) !important;
-            animation: apneaPulse 1s infinite ease-in-out;
-        }
     </style>
 
     <script>
@@ -774,13 +547,64 @@
             };
         }
 
+        // Helper para extraer y normalizar lista de notas / penalidades del intento
+        function extractAttemptNotes(att) {
+            if (!att) return [];
+
+            let raw = [];
+            if (att.notes !== undefined && att.notes !== null) {
+                raw = att.notes;
+            } else if (att.attemp_penalties !== undefined && att.attemp_penalties !== null) {
+                raw = att.attemp_penalties;
+            } else if (att.penalties !== undefined && att.penalties !== null) {
+                raw = att.penalties;
+            } else if (att.attemp_notes !== undefined && att.attemp_notes !== null) {
+                raw = att.attemp_notes;
+            }
+
+            if (typeof raw === 'string') {
+                const trimmed = raw.trim();
+                if (!trimmed) return [];
+                if (trimmed.includes(',')) raw = trimmed.split(',');
+                else if (trimmed.includes(';')) raw = trimmed.split(';');
+                else if (trimmed.includes(' · ')) raw = trimmed.split(' · ');
+                else if (trimmed.includes(' | ')) raw = trimmed.split(' | ');
+                else raw = [trimmed];
+            }
+
+            if (!Array.isArray(raw)) return [];
+
+            const result = [];
+            raw.forEach(item => {
+                if (!item) return;
+                if (typeof item === 'string') {
+                    const s = item.trim();
+                    if (s) result.push(s);
+                } else if (typeof item === 'object') {
+                    const name = item.name || item.note || item.reason || item.title || item.penalty || '';
+                    const count = item.count || item.qty || item.quantity;
+                    if (name) {
+                        const countSuffix = (typeof count === 'number' && count > 1) ? ` x${count}` : '';
+                        result.push(`${name.trim()}${countSuffix}`);
+                    }
+                }
+            });
+
+            return result;
+        }
+
         // Helper para resolver tarjeta y notas según el estado y tarjetas oficiales
         function getAttemptCardAndNotes(att, isJudged, nowMs) {
             const card = (att.attemp_card || '').toLowerCase();
             const isPerforming = att.attemp_status === 'PERFORMING';
-            const isDoneOrSP = att.attemp_status === 'DONE' || 
-                               Boolean(att.performance_finished_at && !card && !isJudged) ||
-                               (Array.isArray(att.judge_updates) && att.judge_updates.some(u => u.event_type === 'PRESTOP' || u.event_type === 'FINAL') && !card && !isJudged);
+            const updates = Array.isArray(att.judge_updates) ? att.judge_updates : [];
+            const isSpCanceledOrEnded = att.sp_canceled || att.sp_cancelled || att.sp_ended || 
+                                        updates.some(u => ['SP_CANCEL', 'SP_END', 'CANCEL_SP', 'END_SP', 'CANCEL'].includes((u.event_type || u.type || '').toUpperCase()));
+
+            const isDoneOrSP = (att.attemp_status === 'DONE' || 
+                                Boolean(att.performance_finished_at && !card && !isJudged) ||
+                                (updates.some(u => u.event_type === 'PRESTOP' || u.event_type === 'FINAL') && !card && !isJudged))
+                               && !isSpCanceledOrEnded;
 
             let cardClass = 'card-none';
             let noteHtml = '';
@@ -811,40 +635,37 @@
                 return { cardClass, noteHtml };
             }
 
-            // 2. Tarjeta Blanca (White Card): si tiene nota de récord (NR, CR, WR, PB), aparece en NOTES sin recuadros
-            if (isJudged && card === 'white') {
-                cardClass = 'card-white';
-                const notes = Array.isArray(att.notes) ? att.notes : [];
-                const recordNote = notes.find(n => ['NR', 'CR', 'WR', 'PB', 'ER', 'AR', 'W'].includes(n.toUpperCase())) || (notes.length > 0 && notes[0] ? notes[0] : null);
-                if (recordNote) {
-                    noteHtml = `<span class="note-badge note-record">${htmlDecode(recordNote.toUpperCase())}</span>`;
+            // 3. Cuando tiene tarjeta o estado dictaminado (Juzgamiento realizado)
+            const effectiveCard = card || (att.attemp_status === 'DQ' ? 'red' : (att.attemp_status === 'DNS' ? 'dns' : (isJudged ? 'white' : '')));
+            if (effectiveCard) {
+                // En caso DNS no debe figurar ninguna tarjeta ni notas
+                if (effectiveCard === 'dns' || att.attemp_status === 'DNS') {
+                    return { cardClass: 'card-none', noteHtml: '' };
                 }
-                return { cardClass, noteHtml };
-            }
 
-            // 3. Tarjeta Roja (Red Card / DQ): sólo el primer motivo de DQ de la lista sin recuadros
-            if (isJudged && (card === 'red' || att.attemp_status === 'DQ')) {
-                cardClass = 'card-red';
-                const notes = Array.isArray(att.notes) ? att.notes : [];
-                if (notes.length > 0 && notes[0]) {
-                    const fullReason = notes[0].trim();
-                    const shortReason = fullReason.replace(/^DQ\s*/i, '');
-                    noteHtml = `<span class="note-badge note-dq" title="${htmlDecode(fullReason)}">${htmlDecode(shortReason)}</span>`;
+                cardClass = `card-${effectiveCard}`;
+
+                const notesList = extractAttemptNotes(att);
+                if (notesList.length > 0) {
+                    let firstNote = notesList[0];
+                    if (effectiveCard === 'red' || att.attemp_status === 'DQ') {
+                        firstNote = firstNote.replace(/^DQ\s*/i, '').trim();
+                    }
+
+                    const plusSuffix = notesList.length > 1 ? ' +' : '';
+                    const displayText = `${firstNote}${plusSuffix}`;
+
+                    // El color de la nota coincide exactamente con el color de la tarjeta
+                    let badgeClass = 'note-white';
+                    if (effectiveCard === 'red' || att.attemp_status === 'DQ') {
+                        badgeClass = 'note-red';
+                    } else if (effectiveCard === 'yellow') {
+                        badgeClass = 'note-yellow';
+                    }
+
+                    noteHtml = `<span class="note-badge ${badgeClass}" title="${htmlDecode(notesList.join(', '))}">${htmlDecode(displayText)}</span>`;
                 }
-                return { cardClass, noteHtml };
-            }
 
-            // 4. Tarjeta Amarilla (Yellow Card): por ahora no mostramos ninguna note
-            if (isJudged && card === 'yellow') {
-                cardClass = 'card-yellow';
-                noteHtml = '';
-                return { cardClass, noteHtml };
-            }
-
-            // 5. DNS
-            if (isJudged && (card === 'dns' || att.attemp_status === 'DNS')) {
-                cardClass = 'card-dns';
-                noteHtml = '';
                 return { cardClass, noteHtml };
             }
 
@@ -901,8 +722,8 @@
                         </div>
                         <div class="apnea-col-country">${country}</div>
                         <div class="apnea-col-athlete">${htmlDecode(athlete.athlete_name || 'ATLETA')}</div>
-                        <div class="apnea-col-ap apnea-mono">${htmlDecode(formatMetric(att.attemp_ap, heatInfo.discipline))}</div>
-                        <div class="apnea-col-rp apnea-mono" id="live-rp-${lane}">-</div>
+                        <div class="apnea-col-ap">${htmlDecode(formatMetric(att.attemp_ap, heatInfo.discipline))}</div>
+                        <div class="apnea-col-rp" id="live-rp-${lane}">-</div>
                         <div class="apnea-col-card">
                             <span class="card-indicator ${cardInfo.cardClass}" id="card-lane-${lane}"></span>
                         </div>
