@@ -399,6 +399,77 @@
   flex-shrink: 0;
 }
 
+.apnea-col-notes {
+  width: 5.5vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 0 0.2vw;
+}
+
+/* Textos y Badges para Columna de Notas (Sin recuadros, sin resplandor, tipografía broadcast nítida) */
+.note-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  filter: none !important;
+  padding: 0 !important;
+  font-family: 'BLAC', sans-serif;
+  font-size: 0.85vw;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+/* Nota Durante la Prueba (PRELIM.) */
+.note-badge.note-prelim {
+  color: var(--theme-secondary);
+  text-shadow: none !important;
+  font-family: 'BOLD', sans-serif;
+  font-size: 0.75vw;
+  letter-spacing: 0.05em;
+  opacity: 0.9;
+}
+
+/* Nota SP (Surface Protocol) - Formato SP ss */
+.note-badge.note-sp {
+  color: var(--theme-brandColor);
+  text-shadow: none !important;
+  font-family: 'BLAC', sans-serif;
+  font-size: 0.85vw;
+  letter-spacing: 0.05em;
+}
+
+/* Nota Récord (WR, CR, NR, PB) */
+.note-badge.note-record {
+  color: #ffd700;
+  text-shadow: none !important;
+  font-family: 'BLAC', sans-serif;
+  font-size: 0.85vw;
+  letter-spacing: 0.06em;
+}
+
+/* Nota Descalificación (Motivo DQ) */
+.note-badge.note-dq {
+  color: #ff3b5c;
+  text-shadow: none !important;
+  font-family: 'BOLD', sans-serif;
+  font-size: 0.75vw;
+  letter-spacing: 0.03em;
+  max-width: 5.5vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Pie de Panel / Footer */
 .apnea-footer {
   display: flex;

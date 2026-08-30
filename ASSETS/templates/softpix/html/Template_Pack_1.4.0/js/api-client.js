@@ -69,6 +69,23 @@ export async function updateCompetition(payload) {
     return _request(`${API_BASE}/competition`, 'POST', payload);
 }
 
+/**
+ * Obtiene la duración inicial en segundos del Protocolo de Superficie (SP) según las reglas o configuración de la competencia.
+ * @param {object} competition - Objeto de configuración de la competencia
+ * @returns {number} Duración del SP en segundos (por defecto 15 para AIDA, 20 para CMAS o valor personalizado)
+ */
+export function getCompetitionSpDuration(competition) {
+    if (!competition) return 15;
+    if (typeof competition.sp_duration === 'number' && competition.sp_duration > 0) return competition.sp_duration;
+    if (typeof competition.surface_protocol_duration === 'number' && competition.surface_protocol_duration > 0) return competition.surface_protocol_duration;
+    if (typeof competition.sp_seconds === 'number' && competition.sp_seconds > 0) return competition.sp_seconds;
+    if (competition.sp_duration && !isNaN(parseInt(competition.sp_duration, 10))) return parseInt(competition.sp_duration, 10);
+
+    const fed = (competition.competition_federation || competition.rules || 'AIDA').trim().toUpperCase();
+    if (fed === 'CMAS') return 20;
+    return 15;
+}
+
 // =============================================
 // Atletas
 // =============================================

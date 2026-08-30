@@ -123,11 +123,83 @@
 
         .head-lane { width: 2.2vw; text-align: center; }
         .head-flag { width: 1.8vw; text-align: center; }
-        .head-country { width: 3vw; }
+        .head-country { width: 2.8vw; }
         .head-athlete { flex-grow: 1; padding-left: 0.2vw; }
-        .head-ap { width: 6vw; text-align: center; }
-        .head-rp { width: 6vw; text-align: center; }
+        .head-ap { width: 5.5vw; text-align: center; }
+        .head-rp { width: 5.5vw; text-align: center; }
         .head-card { width: 1.8vw; text-align: center; }
+        .head-notes { width: 5.5vw; text-align: center; }
+
+        .apnea-col-notes {
+            width: 5.5vw;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-sizing: border-box;
+            overflow: hidden;
+            padding: 0 0.2vw;
+        }
+
+        /* Textos y Badges para Columna de Notas (Sin recuadros, sin resplandor, tipografía broadcast nítida) */
+        .note-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            text-shadow: none !important;
+            filter: none !important;
+            padding: 0 !important;
+            font-family: 'BLAC', sans-serif;
+            font-size: 0.85vw;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            white-space: nowrap;
+            line-height: 1;
+        }
+
+        /* Nota Durante la Prueba (PRELIM.) */
+        .note-badge.note-prelim {
+            color: var(--theme-secondary);
+            text-shadow: none !important;
+            font-family: 'BOLD', sans-serif;
+            font-size: 0.75vw;
+            letter-spacing: 0.05em;
+            opacity: 0.9;
+        }
+
+        /* Nota SP (Surface Protocol) - Formato SP ss */
+        .note-badge.note-sp {
+            color: var(--theme-brandColor);
+            text-shadow: none !important;
+            font-family: 'BLAC', sans-serif;
+            font-size: 0.85vw;
+            letter-spacing: 0.05em;
+        }
+
+        /* Nota Récord (WR, CR, NR, PB) */
+        .note-badge.note-record {
+            color: #ffd700;
+            text-shadow: none !important;
+            font-family: 'BLAC', sans-serif;
+            font-size: 0.85vw;
+            letter-spacing: 0.06em;
+        }
+
+        /* Nota Descalificación (Motivo DQ) */
+        .note-badge.note-dq {
+            color: #ff3b5c;
+            text-shadow: none !important;
+            font-family: 'BOLD', sans-serif;
+            font-size: 0.75vw;
+            letter-spacing: 0.03em;
+            max-width: 5.5vw;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
 
         /* Contenedor de Filas */
         #lanesContainer {
@@ -294,6 +366,7 @@
         // =========================================================
         const liveTrackers = new Map();
         const localAttemptStartMap = new Map();
+        const localAttemptFinishMap = new Map();
 
         // Parser de parámetros de velocidad e intervalo de posta
         function getCompetitionParams(attempt, competition) {
@@ -562,6 +635,40 @@
         let isOverlayVisible = false;
         let currentRenderedHeatKey = "";
 
+        // Helper para obtener la duración inicial del Surface Protocol según competencia o federación
+        function getCompetitionSpDuration(competition) {
+            if (!competition) return 15;
+            if (typeof competition.sp_duration === 'number' && competition.sp_duration > 0) return competition.sp_duration;
+            if (typeof competition.surface_protocol_duration === 'number' && competition.surface_protocol_duration > 0) return competition.surface_protocol_duration;
+            if (typeof competition.sp_seconds === 'number' && competition.sp_seconds > 0) return competition.sp_seconds;
+            if (competition.sp_duration && !isNaN(parseInt(competition.sp_duration, 10))) return parseInt(competition.sp_duration, 10);
+
+            const fed = (competition.competition_federation || competition.rules || 'AIDA').trim().toUpperCase();
+            if (fed === 'CMAS') return 20;
+            return 15;
+        }
+
+        // Helper para extraer o recordar el timestamp de finalización (para SP Timer)
+        function getAttemptFinishMs(att, nowMs, sessionDate) {
+            let rawFinish = att.performance_finished_at || att.finished_at || att.end_time;
+            if (!rawFinish && Array.isArray(att.judge_updates)) {
+                const finishEv = att.judge_updates.slice().reverse().find(u => 
+                    ['PRESTOP', 'STOP', 'FINAL', 'SURFACE', 'DONE'].includes((u.event_type || u.type || '').toUpperCase())
+                );
+                if (finishEv) rawFinish = finishEv.timestamp || finishEv.time;
+            }
+
+            let finishMs = parseTimestampMs(rawFinish, sessionDate);
+            const key = att.attemp_id || `lane_${att.attemp_lane || 1}`;
+            if (finishMs === 0) {
+                if (!localAttemptFinishMap.has(key)) {
+                    localAttemptFinishMap.set(key, nowMs);
+                }
+                finishMs = localAttemptFinishMap.get(key);
+            }
+            return finishMs;
+        }
+
         // Cargar estado inicial y calcular offset del reloj con el servidor
         async function loadInitialData() {
             try {
@@ -667,20 +774,81 @@
             };
         }
 
-        // Helper para resolver tarjeta según el estado y tarjetas oficiales
-        function getAttemptCard(att, isJudged) {
+        // Helper para resolver tarjeta y notas según el estado y tarjetas oficiales
+        function getAttemptCardAndNotes(att, isJudged, nowMs) {
             const card = (att.attemp_card || '').toLowerCase();
+            const isPerforming = att.attemp_status === 'PERFORMING';
             const isDoneOrSP = att.attemp_status === 'DONE' || 
                                Boolean(att.performance_finished_at && !card && !isJudged) ||
                                (Array.isArray(att.judge_updates) && att.judge_updates.some(u => u.event_type === 'PRESTOP' || u.event_type === 'FINAL') && !card && !isJudged);
 
-            if (isJudged && card) {
-                return { cardClass: `card-${card}`, cardContent: '' };
+            let cardClass = 'card-none';
+            let noteHtml = '';
+
+            // 1. Durante la prueba (PERFORMING): se muestra "PRELIM." en la columna NOTES
+            if (isPerforming && !isJudged) {
+                cardClass = 'card-none';
+                noteHtml = '<span class="note-badge note-prelim">PRELIM.</span>';
+                return { cardClass, noteHtml };
             }
-            if (isDoneOrSP && !isJudged) {
-                return { cardClass: 'card-sp', cardContent: 'SP' };
+
+            // 2. Estado en Protocolo de Superficie (SP): cuenta regresiva de SP inicial (ej: 15) a 0
+            if (isDoneOrSP && !card && !isJudged) {
+                cardClass = 'card-none';
+                const currentNow = nowMs || (Date.now() - clockOffset);
+                const finishMs = getAttemptFinishMs(att, currentNow, appState.session_date);
+                const spTotalDuration = getCompetitionSpDuration(appState.competition);
+                const elapsedSpSec = Math.max(0, Math.floor((currentNow - finishMs) / 1000));
+                const remainingSpSec = Math.max(0, spTotalDuration - elapsedSpSec);
+
+                if (remainingSpSec > 0) {
+                    const ss = String(remainingSpSec).padStart(2, '0');
+                    noteHtml = `<span class="note-badge note-sp">SP ${ss}</span>`;
+                } else {
+                    // Al llegar a 0 o finalizar el tiempo de SP, desaparece el texto de SP
+                    noteHtml = '';
+                }
+                return { cardClass, noteHtml };
             }
-            return { cardClass: 'card-none', cardContent: '' };
+
+            // 2. Tarjeta Blanca (White Card): si tiene nota de récord (NR, CR, WR, PB), aparece en NOTES sin recuadros
+            if (isJudged && card === 'white') {
+                cardClass = 'card-white';
+                const notes = Array.isArray(att.notes) ? att.notes : [];
+                const recordNote = notes.find(n => ['NR', 'CR', 'WR', 'PB', 'ER', 'AR', 'W'].includes(n.toUpperCase())) || (notes.length > 0 && notes[0] ? notes[0] : null);
+                if (recordNote) {
+                    noteHtml = `<span class="note-badge note-record">${htmlDecode(recordNote.toUpperCase())}</span>`;
+                }
+                return { cardClass, noteHtml };
+            }
+
+            // 3. Tarjeta Roja (Red Card / DQ): sólo el primer motivo de DQ de la lista sin recuadros
+            if (isJudged && (card === 'red' || att.attemp_status === 'DQ')) {
+                cardClass = 'card-red';
+                const notes = Array.isArray(att.notes) ? att.notes : [];
+                if (notes.length > 0 && notes[0]) {
+                    const fullReason = notes[0].trim();
+                    const shortReason = fullReason.replace(/^DQ\s*/i, '');
+                    noteHtml = `<span class="note-badge note-dq" title="${htmlDecode(fullReason)}">${htmlDecode(shortReason)}</span>`;
+                }
+                return { cardClass, noteHtml };
+            }
+
+            // 4. Tarjeta Amarilla (Yellow Card): por ahora no mostramos ninguna note
+            if (isJudged && card === 'yellow') {
+                cardClass = 'card-yellow';
+                noteHtml = '';
+                return { cardClass, noteHtml };
+            }
+
+            // 5. DNS
+            if (isJudged && (card === 'dns' || att.attemp_status === 'DNS')) {
+                cardClass = 'card-dns';
+                noteHtml = '';
+                return { cardClass, noteHtml };
+            }
+
+            return { cardClass, noteHtml };
         }
 
         // Sincronizar la estructura DOM del Heat (solo regenera HTML si cambia de sesión / heat)
@@ -723,7 +891,7 @@
                     const flagClass = country ? `flag-icon flag-icon-${country.toLowerCase()}` : '';
 
                     const isJudged = att.attemp_status === 'JUDGED' || att.attemp_status === 'DQ' || Boolean(att.attemp_card) || att.attemp_status === 'DNS';
-                    const cardInfo = getAttemptCard(att, isJudged);
+                    const cardInfo = getAttemptCardAndNotes(att, isJudged, Date.now() - clockOffset);
 
                     html += `
                     <div class="apnea-row" id="lane-row-${lane}">
@@ -736,8 +904,9 @@
                         <div class="apnea-col-ap apnea-mono">${htmlDecode(formatMetric(att.attemp_ap, heatInfo.discipline))}</div>
                         <div class="apnea-col-rp apnea-mono" id="live-rp-${lane}">-</div>
                         <div class="apnea-col-card">
-                            <span class="card-indicator ${cardInfo.cardClass}" id="card-lane-${lane}">${cardInfo.cardContent}</span>
+                            <span class="card-indicator ${cardInfo.cardClass}" id="card-lane-${lane}"></span>
                         </div>
+                        <div class="apnea-col-notes" id="notes-lane-${lane}">${cardInfo.noteHtml}</div>
                     </div>`;
                 });
 
@@ -762,11 +931,12 @@
                 const rowEl = e(`lane-row-${lane}`);
                 const rpEl = e(`live-rp-${lane}`);
                 const cardEl = e(`card-lane-${lane}`);
+                const notesEl = e(`notes-lane-${lane}`);
                 if (!rpEl) return;
 
                 const isJudged = att.attemp_status === 'JUDGED' || att.attemp_status === 'DQ' || Boolean(att.attemp_card) || att.attemp_status === 'DNS';
                 const isPerforming = att.attemp_status === 'PERFORMING';
-                const cardInfo = getAttemptCard(att, isJudged);
+                const cardInfo = getAttemptCardAndNotes(att, isJudged, nowMs);
 
                 // Actualizar estado de fila
                 if (rowEl) {
@@ -777,7 +947,12 @@
                 // Tarjeta
                 if (cardEl) {
                     cardEl.className = `card-indicator ${cardInfo.cardClass}`;
-                    cardEl.innerHTML = cardInfo.cardContent;
+                    cardEl.innerHTML = '';
+                }
+
+                // Columna Notes
+                if (notesEl) {
+                    notesEl.innerHTML = cardInfo.noteHtml;
                 }
 
                 if (isJudged) {
@@ -1055,6 +1230,7 @@
                 <div class="head-ap">AP</div>
                 <div class="head-rp">RP</div>
                 <div class="head-card"></div>
+				<div class="head-notes"></div>
             </div>
 
             <!-- Lista de Carriles / Participantes -->
