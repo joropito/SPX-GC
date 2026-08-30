@@ -713,22 +713,28 @@
                 const notesEl = e(`notes-lane-${lane}`);
                 if (!rpEl) return;
 
-                const isJudged = att.attemp_status === 'JUDGED' || att.attemp_status === 'DQ' || Boolean(att.attemp_card) || att.attemp_status === 'DNS';
-                const isPerforming = att.attemp_status === 'PERFORMING';
+                const attemptKey = att.attemp_id || `lane_${lane}`;
+                const card = (att.attemp_card || '').toLowerCase();
+                const status = (att.attemp_status || '').toUpperCase();
+                const isJudged = status === 'JUDGED' || status === 'DQ' || status === 'DNS' || (card && card !== 'none' && card !== 'card-none');
+                const isPerforming = status === 'PERFORMING';
                 const updates = Array.isArray(att.judge_updates) ? att.judge_updates : [];
-                const isSpCanceledOrEnded = att.sp_canceled || att.sp_cancelled || att.sp_ended || 
-                                            updates.some(u => ['SP_CANCEL', 'SP_END', 'CANCEL_SP', 'END_SP', 'CANCEL'].includes((u.event_type || u.type || '').toUpperCase()));
 
-                const isDoneOrSP = (att.attemp_status === 'DONE' || 
-                                    Boolean(att.performance_finished_at && !att.attemp_card && !isJudged) ||
-                                    (updates.some(u => ['PRESTOP', 'STOP', 'FINAL', 'SURFACE', 'DONE'].includes((u.event_type || u.type || '').toUpperCase())) && !att.attemp_card && !isJudged))
-                                   && !isSpCanceledOrEnded;
+                const hasStarted = isPerforming || status === 'DONE' || 
+                                   Boolean(att.performance_started_at || att.started_at || att.performance_finished_at) ||
+                                   updates.some(u => ['START', 'LAP', 'PRESTOP', 'STOP', 'FINAL', 'SURFACE', 'DONE'].includes((u.event_type || u.type || '').toUpperCase())) ||
+                                   localAttemptStartMap.has(attemptKey) || localAttemptFinishMap.has(attemptKey);
+
+                const hasFinishedPerformance = status === 'DONE' ||
+                                               Boolean(att.performance_finished_at) ||
+                                               updates.some(u => ['PRESTOP', 'STOP', 'FINAL', 'SURFACE', 'DONE'].includes((u.event_type || u.type || '').toUpperCase())) ||
+                                               localAttemptFinishMap.has(attemptKey);
 
                 const cardInfo = getAttemptCardAndNotes(att, isJudged, nowMs, appState.competition, clockOffset, appState.session_date);
 
                 // Actualizar estado de fila
                 if (rowEl) {
-                    if (isPerforming || isDoneOrSP) rowEl.classList.add('is-performing');
+                    if (hasStarted && !isJudged) rowEl.classList.add('is-performing');
                     else rowEl.classList.remove('is-performing');
                 }
 
@@ -744,19 +750,22 @@
                 }
 
                 if (isJudged) {
+                    localAttemptStartMap.delete(attemptKey);
+                    localAttemptFinishMap.delete(attemptKey);
+                    liveTrackers.delete(attemptKey);
+
                     rpEl.classList.remove('is-live');
                     let resultDisplay = '';
-                    const card = (att.attemp_card || '').toLowerCase();
-                    if (card === 'red' || att.attemp_status === 'DQ') {
+                    if (card === 'red' || status === 'DQ') {
                         resultDisplay = 'DQ';
-                    } else if (card === 'dns' || att.attemp_status === 'DNS') {
+                    } else if (card === 'dns' || status === 'DNS') {
                         resultDisplay = 'DNS';
                     } else {
                         const val = att.official_result || att.attemp_rp || '-';
                         resultDisplay = formatMetric(val, heatInfo.discipline);
                     }
                     rpEl.innerHTML = htmlDecode(resultDisplay);
-                } else if (isPerforming || isDoneOrSP) {
+                } else if (hasStarted) {
                     rpEl.classList.add('is-live');
                     if (isDynamic) {
                         const athlete = athletesList.find(a => a.athlete_id === att.athlete_id) || {};
@@ -765,12 +774,12 @@
                             athlete_gender: athlete.athlete_gender || att.athlete_gender || 'M',
                             attemp_discipline: heatInfo.discipline
                         };
-                        const calcTime = isDoneOrSP ? getAttemptFinishMs(att, nowMs, appState.session_date) : nowMs;
+                        const calcTime = hasFinishedPerformance ? getAttemptFinishMs(att, nowMs, appState.session_date) : nowMs;
                         const estimatedMeters = calculateLiveDynamicDistance(
                             attemptForCalc,
                             appState.competition,
                             calcTime,
-                            !isDoneOrSP
+                            !hasFinishedPerformance
                         );
                         rpEl.innerHTML = `${estimatedMeters} m`;
                     } else {
@@ -781,9 +790,7 @@
                             if (startEv) rawStartTime = startEv.timestamp || startEv.time || startEv.created_at;
                         }
 
-                        const attemptKey = att.attemp_id || `lane_${lane}`;
                         let parsedStartMs = parseTimestampMs(rawStartTime, appState.session_date);
-
                         if (parsedStartMs > 0) {
                             if (!localAttemptStartMap.has(attemptKey) || Math.abs(localAttemptStartMap.get(attemptKey) - parsedStartMs) > 1500) {
                                 localAttemptStartMap.set(attemptKey, parsedStartMs);
@@ -793,16 +800,17 @@
                         }
 
                         const startMs = localAttemptStartMap.get(attemptKey);
-                        const endMs = isDoneOrSP ? getAttemptFinishMs(att, nowMs, appState.session_date) : nowMs;
+                        const endMs = hasFinishedPerformance ? getAttemptFinishMs(att, nowMs, appState.session_date) : nowMs;
                         const elapsedSec = Math.max(0, (endMs - startMs) / 1000);
                         const mins = Math.floor(elapsedSec / 60);
                         const secs = Math.floor(elapsedSec % 60);
                         rpEl.innerHTML = `${mins}:${String(secs).padStart(2, '0')}`;
                     }
                 } else {
-                    const attemptKey = att.attemp_id || `lane_${lane}`;
                     localAttemptStartMap.delete(attemptKey);
+                    localAttemptFinishMap.delete(attemptKey);
                     liveTrackers.delete(attemptKey);
+
                     rpEl.classList.remove('is-live');
                     rpEl.innerHTML = htmlDecode(formatMetric(att.preliminary_result || att.attemp_rp || '-', heatInfo.discipline));
                 }
