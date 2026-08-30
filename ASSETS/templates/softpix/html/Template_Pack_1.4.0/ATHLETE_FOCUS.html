@@ -9,6 +9,7 @@
     <script type="text/javascript" src="js/lib/anime.min.js"></script>
     <script type="text/javascript" src="js/spx_interface.js"></script>
     <script type="text/javascript" src="js/apnea-helpers.js"></script>
+    <script type="text/javascript" src="js/api-client.js"></script>
     
     <!-- Estilos y Tema Dinámico -->
     <link rel="stylesheet" type="text/css" href="css/styles.css" />
@@ -28,31 +29,15 @@
 
         #gfx {
             position: absolute;
-            opacity: 0; /* Animado por Anime.js */
+            opacity: 0; /* Controlado por Anime.js */
             box-sizing: border-box;
             z-index: 10;
-            transform-origin: center center;
+            transform-origin: left center;
             will-change: transform, opacity;
         }
 
-        /* Ocultar elementos según configuración SPX */
-        #gfx.hide-photo .focus-avatar-container {
-            display: none !important;
-        }
-
-        #gfx.hide-ap .focus-stat-ap {
-            display: none !important;
-        }
-
-        #gfx.hide-timer .focus-timer-box {
-            display: none !important;
-        }
-
-        #gfx.hide-pb .focus-pb-badge {
-            display: none !important;
-        }
-
-        #gfx.hide-notes .focus-notes-box {
+        /* Ocultar notas si está deshabilitada en SPX */
+        #gfx.hide-notes #focusNotes {
             display: none !important;
         }
     </style>
@@ -64,102 +49,12 @@
             return document.getElementById(elementID);
         }
 
-        function htmlDecode(txt) {
-            if (!txt) return '';
-            try {
-                var doc = new DOMParser().parseFromString(txt, "text/html");
-                return doc.documentElement.textContent || '';
-            } catch (_) {
-                return txt;
-            }
-        }
-
-        // Obtener Host de la API
-        function getApiBaseUrl() {
-            const spxHost = e('_API_HOST') ? e('_API_HOST').innerText.trim() : '';
-            if (spxHost !== '') return spxHost.replace(/\/$/, '');
-            
-            try {
-                const urlParams = new URLSearchParams(window.location.search);
-                const paramHost = urlParams.get('api') || urlParams.get('host');
-                if (paramHost) return paramHost.replace(/\/$/, '');
-
-                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                    return `${window.location.protocol}//${window.location.hostname}:3100`;
-                }
-            } catch (_) {}
-            return "https://apnea.glamsi.com";
-        }
-
-        // Formateador inteligente de marcas
-        function formatMetric(val, discipline) {
-            if (!val || val === '' || val === 'undefined' || val === 'null' || val === '-') return '-';
-            const strVal = val.toString().trim();
-            if (strVal === 'DNS' || strVal === 'DQ' || strVal === 'EN CURSO') return strVal;
-            
-            const disc = (discipline || '').toUpperCase();
-            if (disc === 'STA') {
-                if (strVal.includes(':')) {
-                    if (strVal.startsWith('0') && strVal.indexOf(':') === 2) {
-                        return strVal.substring(1);
-                    }
-                    return strVal;
-                }
-                const sec = parseFloat(strVal);
-                if (!isNaN(sec)) {
-                    const s = Math.max(0, Math.floor(sec));
-                    const mins = Math.floor(s / 60);
-                    const remSecs = s % 60;
-                    return `${mins}:${String(remSecs).padStart(2, '0')}`;
-                }
-                return strVal;
-            }
-
-            const cleanStr = strVal.replace(/[^\d.-]/g, '');
-            const num = parseFloat(cleanStr);
-            if (isNaN(num)) return strVal;
-            return `${Math.round(num)} m`;
-        }
-
-        function parseTimestampMs(val, sessionDate) {
-            if (!val && val !== 0) return 0;
-            if (typeof val === 'number') return val < 10000000000 ? val * 1000 : val;
-            if (typeof val === 'string') {
-                const str = val.trim();
-                if (/^\d+$/.test(str)) {
-                    const num = Number(str);
-                    return num < 10000000000 ? num * 1000 : num;
-                }
-                const parsed = Date.parse(str);
-                if (!isNaN(parsed) && parsed > 0) return parsed;
-
-                const timeMatch = str.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
-                if (timeMatch) {
-                    const d = sessionDate ? new Date(sessionDate) : new Date();
-                    d.setHours(parseInt(timeMatch[1], 10), parseInt(timeMatch[2], 10), parseInt(timeMatch[3] || '0', 10), 0);
-                    return d.getTime();
-                }
-            }
-            return 0;
-        }
-
-        // =========================================================
-        // ESTADO GLOBAL Y SINCRONIZACIÓN
-        // =========================================================
-        let appState = { attempts: [], athletes: [], sessions: [], competition: {}, active_broadcast: {} };
-        let clockOffset = 0;
-        let liveTickerTimer = null;
-        let eventSource = null;
-        let isOverlayVisible = false;
-        let localAttemptStartMap = new Map();
-        let localAttemptFinishMap = new Map();
-
-        // Aplicar Posición y Opciones Visuales desde Configuración SPX
+        // Aplicar Posición y Toggles Visuales desde Configuración SPX
         function applyLayoutConfig() {
             const gfx = e('gfx');
             if (!gfx) return;
 
-            // 1. Posición
+            // 1. Posición en Pantalla
             let positionClass = 'pos-bottom-left';
             const spxPos = e('_POSITION') ? e('_POSITION').innerText.trim().toLowerCase() : '';
             let urlPos = '';
@@ -171,40 +66,29 @@
 
             if (targetPos) {
                 if (targetPos.includes('center-center') || targetPos === 'pos-center-center') positionClass = 'pos-center-center';
-                else if (targetPos.includes('bottom-center') || targetPos === 'pos-bottom-center') positionClass = 'pos-bottom-center';
-                else if (targetPos.includes('bottom-right') || targetPos === 'pos-bottom-right') positionClass = 'pos-bottom-right';
-                else if (targetPos.includes('top-left') || targetPos === 'pos-top-left') positionClass = 'pos-top-left';
-                else if (targetPos.includes('top-right') || targetPos === 'pos-top-right') positionClass = 'pos-top-right';
+                else if (targetPos.includes('bottom-right')) positionClass = 'pos-bottom-right';
+                else if (targetPos.includes('top-left')) positionClass = 'pos-top-left';
+                else if (targetPos.includes('top-right')) positionClass = 'pos-top-right';
+                else if (targetPos.includes('center-left')) positionClass = 'pos-center-left';
+                else if (targetPos.includes('center-right')) positionClass = 'pos-center-right';
+                else if (targetPos.includes('bottom-center')) positionClass = 'pos-bottom-center';
                 else positionClass = 'pos-bottom-left';
             }
 
-            // 2. Toggles de Componentes
-            const spxPhoto = e('_SHOW_PHOTO') ? e('_SHOW_PHOTO').innerText.trim().toLowerCase() : '';
-            const spxAp = e('_SHOW_AP') ? e('_SHOW_AP').innerText.trim().toLowerCase() : '';
-            const spxTimer = e('_SHOW_TIMER') ? e('_SHOW_TIMER').innerText.trim().toLowerCase() : '';
-            const spxPb = e('_SHOW_PB') ? e('_SHOW_PB').innerText.trim().toLowerCase() : '';
+            // 2. Toggle de Notas
             const spxNotes = e('_SHOW_NOTES') ? e('_SHOW_NOTES').innerText.trim().toLowerCase() : '';
-
-            let urlPhoto = '', urlAp = '', urlTimer = '', urlPb = '', urlNotes = '';
+            let urlNotes = '';
             try {
                 const urlParams = new URLSearchParams(window.location.search);
-                urlPhoto = (urlParams.get('photo') || '').toLowerCase();
-                urlAp = (urlParams.get('ap') || '').toLowerCase();
-                urlTimer = (urlParams.get('timer') || '').toLowerCase();
-                urlPb = (urlParams.get('pb') || '').toLowerCase();
-                urlNotes = (urlParams.get('notes') || '').toLowerCase();
+                urlNotes = (urlParams.get('notes') || urlParams.get('shownotes') || '').toLowerCase();
             } catch (_) {}
+            const targetNotes = spxNotes || urlNotes;
+            const hideNotesClass = (targetNotes === 'false' || targetNotes === '0' || targetNotes === 'hide' || targetNotes === 'no') ? 'hide-notes' : '';
 
-            const hidePhotoClass = ((spxPhoto || urlPhoto) === 'false' || (spxPhoto || urlPhoto) === 'hide') ? 'hide-photo' : '';
-            const hideApClass = ((spxAp || urlAp) === 'false' || (spxAp || urlAp) === 'hide') ? 'hide-ap' : '';
-            const hideTimerClass = ((spxTimer || urlTimer) === 'false' || (spxTimer || urlTimer) === 'hide') ? 'hide-timer' : '';
-            const hidePbClass = ((spxPb || urlPb) === 'false' || (spxPb || urlPb) === 'hide') ? 'hide-pb' : '';
-            const hideNotesClass = ((spxNotes || urlNotes) === 'false' || (spxNotes || urlNotes) === 'hide') ? 'hide-notes' : '';
-
-            gfx.className = `athlete-focus-panel ${positionClass} ${hidePhotoClass} ${hideApClass} ${hideTimerClass} ${hidePbClass} ${hideNotesClass}`.replace(/\s+/g, ' ').trim();
+            gfx.className = `athlete-focus-panel ${positionClass} ${hideNotesClass}`.trim();
         }
 
-        // Obtener el carril seleccionado desde SPX o URL
+        // Obtener el carril seleccionado (Lane 1 a 8)
         function getSelectedLane() {
             const spxLane = e('_LANE_SELECT') ? e('_LANE_SELECT').innerText.trim() : '';
             let urlLane = '';
@@ -213,22 +97,252 @@
                 urlLane = urlParams.get('lane') || urlParams.get('carril') || '';
             } catch (_) {}
             const target = spxLane || urlLane;
-            if (!target || target.toLowerCase().includes('auto') || target === '0') return 'auto';
             const num = parseInt(target.replace(/\D/g, ''), 10);
-            return isNaN(num) ? 'auto' : num;
+            return (!isNaN(num) && num >= 1 && num <= 8) ? num : 1;
         }
 
-        // Extraer intento y atleta enfocado
-        function getFocusedAthleteData() {
-            const sessionsList = Array.isArray(appState.sessions) ? appState.sessions : [];
-            const activeBroadcast = appState.active_broadcast || {};
-            
-            let activeSession = null;
-            let activeSessionId = activeBroadcast.active_session_id || activeBroadcast.session_id;
+        // =========================================================
+        // MOTOR DE ESTIMACIÓN DINÁMICA & ESTADO
+        // =========================================================
+        const liveTrackers = new Map();
 
-            if (activeSessionId) {
-                activeSession = sessionsList.find(s => (s.session_id === activeSessionId || s.heat_id === activeSessionId));
+        // Parser de parámetros de velocidad e intervalo de posta
+        function getCompetitionParams(attempt, competition) {
+            const disc = (attempt ? (attempt.attemp_discipline || '') : '').trim().toUpperCase();
+            const compSpeeds = (competition && competition.initial_speeds) ? competition.initial_speeds : {};
+            const gender = (attempt && (attempt.athlete_gender || attempt.gender) ? (attempt.athlete_gender || attempt.gender) : 'M').trim().toUpperCase();
+
+            let initialV = 1.0;
+            if (compSpeeds[disc] !== undefined) {
+                if (typeof compSpeeds[disc] === 'object' && compSpeeds[disc] !== null) {
+                    const speedByGender = compSpeeds[disc][gender] || compSpeeds[disc].M || compSpeeds[disc].default;
+                    if (speedByGender !== undefined && !isNaN(parseFloat(speedByGender))) {
+                        initialV = parseFloat(speedByGender);
+                    }
+                } else if (!isNaN(parseFloat(compSpeeds[disc]))) {
+                    initialV = parseFloat(compSpeeds[disc]);
+                }
+            } else if (compSpeeds.default !== undefined && !isNaN(parseFloat(compSpeeds.default))) {
+                initialV = parseFloat(compSpeeds.default);
+            } else {
+                if (disc === 'DNF') initialV = 0.95;
+                else if (disc === 'DYNB') initialV = 1.05;
+                else if (disc === 'DYN') initialV = 1.15;
             }
+
+            const intervaloPosta = (competition && competition.distance_step && !isNaN(parseFloat(competition.distance_step)))
+                ? parseFloat(competition.distance_step)
+                : 5;
+
+            return { initialV, intervaloPosta };
+        }
+
+        function calculatePureDistance(attempt, competition, targetTimeMs) {
+            if (!attempt) return 0;
+            const { initialV, intervaloPosta } = getCompetitionParams(attempt, competition);
+            let updates = (attempt.judge_updates || []).filter(u => new Date(u.timestamp).getTime() <= targetTimeMs);
+            let startEvent = updates.find(u => u.event_type === 'START');
+
+            if (!startEvent && (attempt.started_at || attempt.start_time || attempt.start_timestamp || attempt.timestamp)) {
+                startEvent = {
+                    event_type: 'START',
+                    timestamp: attempt.started_at || attempt.start_time || attempt.start_timestamp || attempt.timestamp
+                };
+                updates.unshift(startEvent);
+            }
+
+            if (!startEvent) return 0;
+
+            let D_base = 0;
+            let T_base = new Date(startEvent.timestamp).getTime();
+            let V_actual = initialV;
+
+            const splits = updates
+                .filter(u => u.event_type === 'LAP')
+                .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+            for (const split of splits) {
+                const T_real = new Date(split.timestamp).getTime();
+                const deltaT_split = Math.max(0.1, (T_real - T_base) / 1000);
+
+                let D_estimada_al_click = D_base + (V_actual * deltaT_split);
+                let postaMasCercana = Math.round(D_estimada_al_click / intervaloPosta) * intervaloPosta;
+
+                if (postaMasCercana <= D_base) {
+                    postaMasCercana = D_base + intervaloPosta;
+                }
+
+                const deltaD_split = postaMasCercana - D_base;
+                const velocidadCalculada = deltaD_split / deltaT_split;
+
+                const VELOCIDAD_CAP = 2.0;
+                const VELOCIDAD_MISCLICK = 4.0;
+
+                if (velocidadCalculada < VELOCIDAD_MISCLICK) {
+                    if (deltaT_split > 0 && deltaD_split > 0) {
+                        V_actual = Math.max(0.2, Math.min(velocidadCalculada, VELOCIDAD_CAP));
+                    }
+                    D_base = postaMasCercana;
+                    T_base = T_real;
+                }
+            }
+
+            const rawDeltaT = Math.max(0, (targetTimeMs - T_base) / 1000);
+            let D_final = D_base + (V_actual * rawDeltaT);
+
+            const maximoPermitido = D_base + (intervaloPosta * 3) - 0.01;
+            if (D_final > maximoPermitido) {
+                D_final = maximoPermitido;
+            }
+
+            return Math.floor(D_final);
+        }
+
+        function calculateLiveDynamicDistance(attempt, competition, nowMs = Date.now(), useSmoothing = true) {
+            if (!attempt || !attempt.attemp_id) return 0;
+            const attemptId = attempt.attemp_id;
+            let updates = Array.isArray(attempt.judge_updates) ? [...attempt.judge_updates] : [];
+            let startEvent = updates.find(u => u.event_type === 'START');
+
+            if (!startEvent && (attempt.started_at || attempt.start_time || attempt.start_timestamp || attempt.timestamp)) {
+                startEvent = {
+                    event_type: 'START',
+                    timestamp: attempt.started_at || attempt.start_time || attempt.start_timestamp || attempt.timestamp
+                };
+                updates.unshift(startEvent);
+            }
+
+            if (!startEvent) {
+                const attemptKey = attempt.attemp_id || `lane_${attempt.attemp_lane}`;
+                if (localAttemptStartMap.has(attemptKey)) {
+                    startEvent = {
+                        event_type: 'START',
+                        timestamp: new Date(localAttemptStartMap.get(attemptKey)).toISOString()
+                    };
+                    updates.unshift(startEvent);
+                }
+            }
+
+            if (updates.length === 0 || !startEvent) {
+                if (liveTrackers.has(attemptId)) liveTrackers.delete(attemptId);
+                return 0;
+            }
+
+            const stopEvent = updates.slice().reverse().find(u => u.event_type === 'PRESTOP' || u.event_type === 'FINAL');
+            if (stopEvent) {
+                if (liveTrackers.has(attemptId)) liveTrackers.delete(attemptId);
+                return calculatePureDistance(attempt, competition, new Date(stopEvent.timestamp).getTime());
+            }
+
+            if (!useSmoothing) {
+                return calculatePureDistance(attempt, competition, nowMs);
+            }
+
+            const { initialV, intervaloPosta } = getCompetitionParams(attempt, competition);
+            const splits = updates
+                .filter(u => u.event_type === 'LAP')
+                .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+            let tracker = liveTrackers.get(attemptId);
+
+            if (tracker && tracker.originalStartTimestamp !== startEvent.timestamp) {
+                liveTrackers.delete(attemptId);
+                tracker = undefined;
+            }
+
+            if (!tracker) {
+                tracker = {
+                    originalStartTimestamp: startEvent.timestamp,
+                    D_base: 0,
+                    T_base: new Date(startEvent.timestamp).getTime(),
+                    V_actual: initialV,
+                    D_actual: 0,
+                    OffsetCorreccion: 0,
+                    lastSplitTimestamp: startEvent.timestamp,
+                    isNewSplitTick: false,
+                    maxDeltaT: 0,
+                    hasCustomSpeed: false
+                };
+                liveTrackers.set(attemptId, tracker);
+            }
+
+            const latestSplit = splits.length > 0 ? splits[splits.length - 1] : startEvent;
+
+            if (tracker.lastSplitTimestamp !== latestSplit.timestamp) {
+                const T_real = new Date(latestSplit.timestamp).getTime();
+                const deltaT_total = Math.max(0.1, (T_real - tracker.T_base) / 1000);
+                let D_estimada = tracker.D_base + (tracker.V_actual * deltaT_total);
+                let D_real = Math.round(D_estimada / intervaloPosta) * intervaloPosta;
+
+                if (D_real <= tracker.D_base) {
+                    D_real = tracker.D_base + intervaloPosta;
+                }
+
+                const deltaD = D_real - tracker.D_base;
+                const velocidadLap = deltaD / deltaT_total;
+
+                const VELOCIDAD_CAP = 2.0;
+                const VELOCIDAD_MISCLICK = 4.0;
+
+                if (velocidadLap < VELOCIDAD_MISCLICK) {
+                    if (deltaT_total > 0 && deltaD > 0) {
+                        tracker.V_actual = Math.max(0.2, Math.min(velocidadLap, VELOCIDAD_CAP));
+                        tracker.hasCustomSpeed = true;
+                    }
+                    tracker.D_base = D_real;
+                    tracker.T_base = T_real;
+                    tracker.OffsetCorreccion = D_real - tracker.D_actual;
+                    tracker.isNewSplitTick = true;
+                    tracker.maxDeltaT = 0;
+                }
+                tracker.lastSplitTimestamp = latestSplit.timestamp;
+            }
+
+            const rawDeltaT = Math.max(0, (nowMs - tracker.T_base) / 1000);
+            if (rawDeltaT > tracker.maxDeltaT) {
+                tracker.maxDeltaT = rawDeltaT;
+            }
+
+            const effectiveDeltaT = tracker.maxDeltaT;
+            let D_proyectada = tracker.D_base + (tracker.V_actual * effectiveDeltaT);
+
+            const maximoPermitido = tracker.D_base + (intervaloPosta * 3) - 0.01;
+            if (D_proyectada > maximoPermitido) {
+                D_proyectada = maximoPermitido;
+            }
+
+            let D_suavizada = D_proyectada;
+            if (tracker.OffsetCorreccion !== 0) {
+                const step = 0.05 * Math.sign(tracker.OffsetCorreccion);
+                if (Math.abs(tracker.OffsetCorreccion) <= 0.05) {
+                    tracker.OffsetCorreccion = 0;
+                } else {
+                    tracker.OffsetCorreccion -= step;
+                }
+                D_suavizada += tracker.OffsetCorreccion;
+            }
+
+            tracker.D_actual = Math.max(tracker.D_actual, D_suavizada);
+            return Math.floor(tracker.D_actual);
+        }
+
+        let appState = { attempts: [], athletes: [], sessions: [], competition: {}, active_broadcast: {} };
+        let clockOffset = 0;
+        let liveTickerTimer = null;
+        let eventSource = null;
+        let isOverlayVisible = false;
+
+        // Obtener la información del heat activo y del atleta enfocado
+        function getFocusedAthleteData() {
+            if (!appState || (!appState.sessions && !appState.heats) || !appState.attempts) return null;
+
+            const activeBroadcast = appState.active_broadcast || {};
+            let activeSessionId = activeBroadcast.session_id || "";
+            let activeOt = activeBroadcast.session_ot || activeBroadcast.heat_ot || "";
+
+            const sessionsList = appState.sessions || appState.heats || [];
+            let activeSession = sessionsList.find(s => (s.session_id === activeSessionId || s.heat_id === activeSessionId));
+
             if (!activeSession && sessionsList.length > 0) {
                 activeSession = sessionsList.find(s => s.status !== 'closed') || sessionsList[0];
                 activeSessionId = activeSession.session_id || activeSession.heat_id;
@@ -240,88 +354,69 @@
                 att.session_id === activeSessionId || att.heat_id === activeSessionId
             );
 
-            // Determinar Heat Activo
-            let targetAttempts = [];
-            const activeOt = activeBroadcast.active_heat_ot || activeBroadcast.active_ot;
-            if (activeOt) {
-                targetAttempts = sessionAttempts.filter(att => (att.attemp_ot || '').trim() === activeOt.trim());
-            }
-            if (targetAttempts.length === 0) {
-                const inProgress = sessionAttempts.filter(att => att.attemp_status === 'in_progress');
-                if (inProgress.length > 0) {
-                    const firstOt = (inProgress[0].attemp_ot || '').trim();
-                    targetAttempts = sessionAttempts.filter(att => (att.attemp_ot || '').trim() === firstOt);
+            if (!activeOt) {
+                const performingAtt = sessionAttempts.find(att => att.attemp_status === 'PERFORMING');
+                if (performingAtt && performingAtt.attemp_ot) {
+                    activeOt = performingAtt.attemp_ot;
+                } else if (sessionAttempts.length > 0) {
+                    activeOt = sessionAttempts[0].attemp_ot || "";
                 }
             }
-            if (targetAttempts.length === 0) {
-                targetAttempts = sessionAttempts;
+
+            let heatAttempts = sessionAttempts.filter(att => !activeOt || att.attemp_ot === activeOt);
+            if (heatAttempts.length === 0 && sessionAttempts.length > 0) {
+                heatAttempts = sessionAttempts;
             }
 
-            // Seleccionar carril
-            const selectedLane = getSelectedLane();
-            let targetAttempt = null;
-
-            if (selectedLane !== 'auto') {
-                targetAttempt = targetAttempts.find(att => parseInt(att.attemp_lane, 10) === selectedLane);
-                if (!targetAttempt) {
-                    targetAttempt = sessionAttempts.find(att => parseInt(att.attemp_lane, 10) === selectedLane);
-                }
-            } else {
-                // Auto: primer intento en progreso o primer intento disponible
-                targetAttempt = targetAttempts.find(att => att.attemp_status === 'in_progress') || targetAttempts[0];
+            const targetLane = getSelectedLane();
+            let attempt = heatAttempts.find(a => parseInt(a.attemp_lane, 10) === targetLane);
+            if (!attempt) {
+                attempt = sessionAttempts.find(a => parseInt(a.attemp_lane, 10) === targetLane);
             }
 
-            if (!targetAttempt) return null;
-
-            // Datos del atleta
-            const athletesList = Array.isArray(appState.athletes) ? appState.athletes : [];
-            const athlete = athletesList.find(a => 
-                (a.athlete_id && a.athlete_id === targetAttempt.athlete_id) || 
-                (a.id && a.id === targetAttempt.athlete_id)
-            ) || {};
-
-            const discipline = (targetAttempt.attemp_discipline || targetAttempt.discipline || activeSession.session_discipline || activeSession.discipline || 'STA').toUpperCase();
+            const athletesList = appState.athletes || [];
+            const athlete = attempt ? (athletesList.find(a => a.athlete_id === attempt.athlete_id) || {}) : {};
 
             return {
                 session: activeSession,
-                attempt: targetAttempt,
-                athlete: athlete,
-                discipline: discipline
+                sessionId: activeSessionId,
+                ot: activeOt,
+                discipline: ((attempt ? attempt.attemp_discipline : null) || activeSession.session_discipline || "STA").toUpperCase(),
+                targetLane: targetLane,
+                attempt: attempt,
+                athlete: athlete
             };
         }
 
-        // Renderizar el contenido del atleta
+        // Renderizar la información del competidor
         function renderFocusedAthlete() {
             const data = getFocusedAthleteData();
             if (!data) return;
 
-            const { attempt, athlete, discipline } = data;
+            const targetLane = data.targetLane;
+            const att = data.attempt;
+            const athlete = data.athlete || {};
+            const discipline = data.discipline;
 
-            // 1. Carril
-            const laneVal = attempt.attemp_lane || '1';
-            if (e('focusLane')) e('focusLane').innerText = laneVal;
-
-            // 2. Avatar / Foto del Atleta
-            const photoUrl = athlete.athlete_photo || athlete.photo || athlete.image || '';
-            const athleteName = (athlete.athlete_name || athlete.name || attempt.athlete_name || 'ATLETA').trim();
-            const avatarContainer = e('focusAvatar');
-
-            if (avatarContainer) {
-                if (photoUrl && photoUrl !== '') {
-                    avatarContainer.innerHTML = `<img src="${photoUrl}" class="focus-avatar-img" alt="${athleteName}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" /><span class="focus-avatar-fallback" style="display:none;">${getInitials(athleteName)}</span>`;
-                } else {
-                    avatarContainer.innerHTML = `<span class="focus-avatar-fallback">${getInitials(athleteName)}</span>`;
-                }
+            if (!att) {
+                if (e('focusFlag')) e('focusFlag').innerHTML = '';
+                if (e('focusCountry')) e('focusCountry').innerText = '';
+                if (e('focusName')) e('focusName').innerText = `LANE ${targetLane}`;
+                if (e('focusDiscipline')) e('focusDiscipline').innerText = discipline;
+                if (e('focusApVal')) e('focusApVal').innerText = '-';
+                if (e('focusRpVal')) e('focusRpVal').innerText = '-';
+                if (e('focusCard')) e('focusCard').innerHTML = '';
+                if (e('focusNotes')) e('focusNotes').innerHTML = '';
+                return;
             }
 
-            // 3. Bandera y País
-            const countryCode = (athlete.athlete_country || athlete.country || attempt.athlete_country || '').trim().toUpperCase();
-            if (e('focusCountry')) e('focusCountry').innerText = countryCode;
-
+            // 1. Bandera y País
+            const country = (athlete.athlete_country || att.athlete_country || '').toUpperCase();
+            if (e('focusCountry')) e('focusCountry').innerText = country;
             if (e('focusFlag')) {
-                if (countryCode && countryCode.length >= 2) {
-                    const iso2 = getCountryIso2(countryCode);
-                    e('focusFlag').innerHTML = `<span class="flag-icon flag-icon-${iso2.toLowerCase()}"></span>`;
+                if (country && country.length >= 2) {
+                    const flagClass = `flag-icon flag-icon-${country.toLowerCase()}`;
+                    e('focusFlag').innerHTML = `<span class="${flagClass}" title="${country}"></span>`;
                     e('focusFlag').style.display = 'flex';
                 } else {
                     e('focusFlag').innerHTML = '';
@@ -329,125 +424,155 @@
                 }
             }
 
-            // 4. Nombre
+            // 2. Nombre
+            const athleteName = athlete.athlete_name || att.athlete_name || 'ATLETA';
             if (e('focusName')) e('focusName').innerText = athleteName.toUpperCase();
 
-            // 5. Disciplina
+            // 3. Disciplina
             if (e('focusDiscipline')) e('focusDiscipline').innerText = discipline;
 
-            // 6. AP
-            const apVal = formatMetric(attempt.attemp_ap, discipline);
-            if (e('focusApVal')) e('focusApVal').innerText = apVal;
+            // 4. AP
+            if (e('focusApVal')) e('focusApVal').innerText = formatMetric(att.attemp_ap, discipline);
 
-            // 7. PB (Personal Best)
-            const pbVal = athlete.athlete_pb || athlete.pb || attempt.athlete_pb || '';
-            const pbBadge = e('focusPb');
-            if (pbBadge) {
-                if (pbVal && pbVal !== '') {
-                    pbBadge.innerText = `PB ${formatMetric(pbVal, discipline)}`;
-                    pbBadge.style.display = 'inline-flex';
-                } else {
-                    pbBadge.style.display = 'none';
-                }
-            }
-
-            // 8. Estado en Vivo / RP / Tarjeta
-            updateLiveValues(attempt, discipline);
+            // 5. Valores en vivo / RP / Tarjeta / Notas
+            tickLiveValues();
         }
 
-        function getInitials(name) {
-            if (!name) return 'A';
-            const parts = name.trim().split(/\s+/);
-            if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-        }
+        // Ticker de valores en tiempo real (segundo a segundo) con formato inline [STA] AP: xx | RP: xx | [card] [notes]
+        function tickLiveValues() {
+            const data = getFocusedAthleteData();
+            if (!data || !data.attempt) return;
 
-        function getCountryIso2(code) {
-            if (!code) return '';
-            const c = code.trim().toUpperCase();
-            if (c.length === 2) return c;
-            const map = {
-                'ARG': 'ar', 'BRA': 'br', 'CHI': 'cl', 'COL': 'co', 'ESP': 'es', 'SPA': 'es',
-                'USA': 'us', 'FRA': 'fr', 'ITA': 'it', 'GER': 'de', 'MEX': 'mx', 'URU': 'uy',
-                'ECU': 'ec', 'PER': 'pe', 'VEN': 've', 'BOL': 'bo', 'PAR': 'py', 'CAN': 'ca',
-                'JPN': 'jp', 'CHN': 'cn', 'KOR': 'kr', 'AUS': 'au', 'NZL': 'nz', 'GBR': 'gb',
-                'UKR': 'ua', 'POL': 'pl', 'RUS': 'ru', 'CRO': 'hr', 'GRE': 'gr', 'TUR': 'tr',
-                'HKG': 'hk', 'TWN': 'tw', 'SGP': 'sg', 'RSA': 'za', 'EGY': 'eg', 'CUB': 'cu'
-            };
-            return map[c] || c.substring(0, 2).toLowerCase();
-        }
-
-        // Actualización dinámica de RP, Cronómetro en Vivo y Tarjeta
-        function updateLiveValues(attempt, discipline) {
+            const att = data.attempt;
+            const athlete = data.athlete || {};
+            const discipline = data.discipline;
+            const targetLane = data.targetLane;
             const nowMs = Date.now() - clockOffset;
-            const status = (attempt.attemp_status || '').toLowerCase();
-            const disc = (discipline || 'STA').toUpperCase();
+            const isDynamic = ['DYN', 'DYNB', 'DNF'].includes(discipline);
+
+            const rpBox = e('focusRpBox');
+            const rpVal = e('focusRpVal');
+            const rpLabel = e('focusRpLabel');
+            const cardBox = e('focusCard');
+            const notesBox = e('focusNotes');
+
+            const isJudged = att.attemp_status === 'JUDGED' || att.attemp_status === 'DQ' || Boolean(att.attemp_card) || att.attemp_status === 'DNS';
+            const isPerforming = att.attemp_status === 'PERFORMING';
+            const updates = Array.isArray(att.judge_updates) ? att.judge_updates : [];
+            const isSpCanceledOrEnded = att.sp_canceled || att.sp_cancelled || att.sp_ended || 
+                                        updates.some(u => ['SP_CANCEL', 'SP_END', 'CANCEL_SP', 'END_SP', 'CANCEL'].includes((u.event_type || u.type || '').toUpperCase()));
+
+            const isDoneOrSP = (att.attemp_status === 'DONE' || 
+                                Boolean(att.performance_finished_at && !att.attemp_card && !isJudged) ||
+                                (updates.some(u => ['PRESTOP', 'STOP', 'FINAL', 'SURFACE', 'DONE'].includes((u.event_type || u.type || '').toUpperCase())) && !att.attemp_card && !isJudged))
+                               && !isSpCanceledOrEnded;
+
+            const cardInfo = getAttemptCardAndNotes(att, isJudged, nowMs, appState.competition, clockOffset, appState.session_date);
 
             // Tarjeta Oficial
-            const cardVal = (attempt.attemp_card || '').toUpperCase();
-            const cardContainer = e('focusCard');
-            if (cardContainer) {
-                if (status === 'finished' && cardVal && cardVal !== 'NONE' && cardVal !== '-') {
-                    let cardClass = 'card-white';
-                    if (cardVal.includes('YELLOW') || cardVal === 'Y') cardClass = 'card-yellow';
-                    else if (cardVal.includes('RED') || cardVal === 'R') cardClass = 'card-red';
-                    cardContainer.innerHTML = `<span class="apnea-card ${cardClass}"></span>`;
-                    cardContainer.style.display = 'flex';
+            if (cardBox) {
+                if (isJudged && cardInfo.cardClass && cardInfo.cardClass !== 'card-none') {
+                    cardBox.innerHTML = `<span class="card-indicator ${cardInfo.cardClass}"></span>`;
                 } else {
-                    cardContainer.innerHTML = '';
-                    cardContainer.style.display = 'none';
+                    cardBox.innerHTML = '';
                 }
             }
 
-            // RP / Distancia
-            const rpBox = e('focusRpVal');
-            if (rpBox) {
-                if (status === 'finished' || status === 'completed') {
-                    rpBox.innerText = formatMetric(attempt.attemp_rp, disc);
-                } else if (status === 'in_progress') {
-                    rpBox.innerText = 'EN CURSO';
-                } else if (status === 'dns') {
-                    rpBox.innerText = 'DNS';
-                } else if (status === 'dq') {
-                    rpBox.innerText = 'DQ';
+            // Notas / Protocolo (Sin "PRELIM.")
+            if (notesBox) {
+                if (cardInfo.noteHtml && !cardInfo.noteHtml.includes('note-prelim') && cardInfo.noteHtml.trim() !== '') {
+                    notesBox.innerHTML = cardInfo.noteHtml;
                 } else {
-                    rpBox.innerText = '-';
+                    notesBox.innerHTML = '';
                 }
             }
 
-            // Cronómetro en Vivo
-            const timerVal = e('focusTimerVal');
-            const timerBox = e('focusTimer');
+            // RP / Live Metric Inline
+            if (isJudged) {
+                if (rpBox) rpBox.classList.remove('is-live');
+                if (rpLabel) rpLabel.innerText = 'RP:';
 
-            if (status === 'in_progress') {
-                let startMs = parseTimestampMs(attempt.started_at || attempt.start_time || attempt.start_timestamp);
-                const attemptKey = attempt.attemp_id || `lane_${attempt.attemp_lane}`;
-                if (startMs === 0) {
-                    if (!localAttemptStartMap.has(attemptKey)) {
+                let resultDisplay = '';
+                const card = (att.attemp_card || '').toLowerCase();
+                if (card === 'red' || att.attemp_status === 'DQ') {
+                    resultDisplay = 'DQ';
+                } else if (card === 'dns' || att.attemp_status === 'DNS') {
+                    resultDisplay = 'DNS';
+                } else {
+                    const val = att.official_result || att.attemp_rp || '-';
+                    resultDisplay = formatMetric(val, discipline);
+                }
+                if (rpVal) rpVal.innerText = resultDisplay;
+            } else if (isPerforming || isDoneOrSP) {
+                if (rpBox) rpBox.classList.add('is-live');
+                if (rpLabel) rpLabel.innerText = 'LIVE:';
+
+                if (isDynamic) {
+                    const attemptForCalc = {
+                        ...att,
+                        athlete_gender: athlete.athlete_gender || att.athlete_gender || 'M',
+                        attemp_discipline: discipline
+                    };
+                    const calcTime = isDoneOrSP ? getAttemptFinishMs(att, nowMs, appState.session_date) : nowMs;
+                    const estimatedMeters = calculateLiveDynamicDistance(
+                        attemptForCalc,
+                        appState.competition,
+                        calcTime,
+                        !isDoneOrSP
+                    );
+                    if (rpVal) rpVal.innerText = `${estimatedMeters} m`;
+                } else {
+                    // STA: Cálculo continuo y estable
+                    let rawStartTime = att.started_at || att.start_time || att.performance_started_at || att.timestamp;
+                    if (!rawStartTime && Array.isArray(att.judge_updates)) {
+                        const startEv = att.judge_updates.find(u => (u.event_type || u.type || '').toUpperCase() === 'START');
+                        if (startEv) rawStartTime = startEv.timestamp || startEv.time || startEv.created_at;
+                    }
+
+                    const attemptKey = att.attemp_id || `lane_${targetLane}`;
+                    let parsedStartMs = parseTimestampMs(rawStartTime, appState.session_date);
+
+                    if (parsedStartMs > 0) {
+                        if (!localAttemptStartMap.has(attemptKey) || Math.abs(localAttemptStartMap.get(attemptKey) - parsedStartMs) > 1500) {
+                            localAttemptStartMap.set(attemptKey, parsedStartMs);
+                        }
+                    } else if (!localAttemptStartMap.has(attemptKey)) {
                         localAttemptStartMap.set(attemptKey, nowMs);
                     }
-                    startMs = localAttemptStartMap.get(attemptKey);
-                }
 
-                const elapsedSec = Math.max(0, Math.floor((nowMs - startMs) / 1000));
-                const mins = Math.floor(elapsedSec / 60);
-                const secs = elapsedSec % 60;
-                if (timerVal) timerVal.innerText = `${mins}:${String(secs).padStart(2, '0')}`;
-                if (timerBox) timerBox.style.display = 'flex';
+                    const startMs = localAttemptStartMap.get(attemptKey);
+                    const endMs = isDoneOrSP ? getAttemptFinishMs(att, nowMs, appState.session_date) : nowMs;
+                    const elapsedSec = Math.max(0, (endMs - startMs) / 1000);
+                    const mins = Math.floor(elapsedSec / 60);
+                    const secs = Math.floor(elapsedSec % 60);
+                    if (rpVal) rpVal.innerText = `${mins}:${String(secs).padStart(2, '0')}`;
+                }
             } else {
-                if (timerBox) timerBox.style.display = 'none';
+                const attemptKey = att.attemp_id || `lane_${targetLane}`;
+                localAttemptStartMap.delete(attemptKey);
+                liveTrackers.delete(attemptKey);
+
+                if (rpBox) rpBox.classList.remove('is-live');
+                if (rpLabel) rpLabel.innerText = 'RP:';
+                if (rpVal) rpVal.innerText = formatMetric(att.preliminary_result || att.attemp_rp || '-', discipline);
             }
         }
 
-        // Iniciar Live Ticker (actualización continua a 10 Hz)
+        // Iniciar Ticker
         function startLiveTicker() {
             if (liveTickerTimer) clearInterval(liveTickerTimer);
             liveTickerTimer = setInterval(() => {
-                const data = getFocusedAthleteData();
-                if (data && isOverlayVisible) {
-                    updateLiveValues(data.attempt, data.discipline);
+                if (isOverlayVisible) {
+                    tickLiveValues();
                 }
-            }, 100);
+            }, 200);
+        }
+
+        function stopLiveTicker() {
+            if (liveTickerTimer) {
+                clearInterval(liveTickerTimer);
+                liveTickerTimer = null;
+            }
         }
 
         // Cargar estado inicial desde API
@@ -457,6 +582,7 @@
                 const res = await fetch(`${apiBase}/api/all`);
                 if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
                 const data = await res.json();
+
                 clockOffset = Date.now() - (data.server_now || Date.now());
                 appState = data;
                 renderFocusedAthlete();
@@ -508,24 +634,16 @@
 
         // =========================================================
         // CONTROL DE ANIMACIONES (ANIME.JS)
+        // 1. Layout crece de izquierda a derecha -> Luego aparece el contenido
+        // 2. Desaparece el contenido -> Layout se achica de derecha a izquierda
         // =========================================================
-        window.play = function() {
-            playAnimation();
-        };
+        function runTemplateUpdate() {
+            if (e('DynamicTheme') && e('f99') && e('f99').innerText.trim() !== '') {
+                e('DynamicTheme').href = e('f99').innerText.trim();
+            }
 
-        window.stop = function() {
-            if (window.spxSetState) window.spxSetState('STOPPING');
-            runAnimationOUT();
-        };
-
-        window.update = function() {
             applyLayoutConfig();
             loadInitialData();
-        };
-
-        async function playAnimation() {
-            applyLayoutConfig();
-            await loadInitialData();
 
             if (!eventSource) {
                 setupLiveUpdates();
@@ -535,47 +653,92 @@
             runAnimationIN();
         }
 
-        // Animación de Entrada: Despliegue suave desde el inferior
         function runAnimationIN() {
             isOverlayVisible = true;
             if (window.spxSetState) window.spxSetState('PLAYING');
 
-            anime.remove('#gfx');
+            anime.remove(['#gfx', '#focusContent']);
             renderFocusedAthlete();
 
+            // 1. Reset: Layout inicia con escala 0 a la izquierda, contenido transparente
+            const gfxEl = e('gfx');
+            if (gfxEl) {
+                gfxEl.style.transformOrigin = 'left center';
+            }
+
             anime.set('#gfx', {
-                opacity: 0,
-                translateY: 25,
-                scale: 0.98
+                opacity: 1,
+                scaleX: 0
             });
 
-            anime({
-                targets: '#gfx',
-                opacity: [0, 1],
-                translateY: [25, 0],
-                scale: [0.98, 1],
-                duration: 400,
-                easing: 'easeOutCubic'
+            anime.set('#focusContent', {
+                opacity: 0,
+                translateX: -16
             });
+
+            var tl = anime.timeline({
+                easing: 'easeOutCubic',
+                complete: function() {
+                    anime.set('#gfx', { opacity: 1, scaleX: 1 });
+                    anime.set('#focusContent', { opacity: 1, translateX: 0 });
+                    if (window.spxSetState) window.spxSetState('PLAYING');
+                }
+            });
+
+            // Paso 1: Layout crece de izquierda a derecha
+            tl.add({
+                targets: '#gfx',
+                scaleX: [0, 1],
+                opacity: [0, 1],
+                duration: 380,
+                easing: 'easeOutCubic'
+            }, 0)
+            // Paso 2: Luego aparece el contenido
+            .add({
+                targets: '#focusContent',
+                opacity: [0, 1],
+                translateX: [-16, 0],
+                duration: 280,
+                easing: 'easeOutQuad'
+            }, 240);
         }
 
-        // Animación de Salida: Desvanecimiento hacia abajo
         function runAnimationOUT() {
             isOverlayVisible = false;
-            anime.remove('#gfx');
+            if (window.spxSetState) window.spxSetState('STOPPING');
 
-            anime({
-                targets: '#gfx',
-                opacity: [1, 0],
-                translateY: [0, 20],
-                scale: [1, 0.98],
-                duration: 250,
-                easing: 'easeInCubic',
+            anime.remove(['#gfx', '#focusContent']);
+
+            const gfxEl = e('gfx');
+            if (gfxEl) {
+                gfxEl.style.transformOrigin = 'right center';
+            }
+
+            var tl = anime.timeline({
+                easing: 'easeInOutCubic',
                 complete: function() {
-                    anime.set('#gfx', { opacity: 0 });
+                    anime.set('#gfx', { opacity: 0, scaleX: 0 });
+                    if (gfxEl) gfxEl.style.transformOrigin = 'left center';
                     if (window.spxSetState) window.spxSetState('STOPPED');
                 }
             });
+
+            // Paso 1: Primero desaparece el contenido
+            tl.add({
+                targets: '#focusContent',
+                opacity: [1, 0],
+                translateX: [0, 16],
+                duration: 180,
+                easing: 'easeInQuad'
+            }, 0)
+            // Paso 2: Luego el layout se achica de derecha a izquierda
+            .add({
+                targets: '#gfx',
+                scaleX: [1, 0],
+                opacity: [1, 0],
+                duration: 320,
+                easing: 'easeInOutCubic'
+            }, 120);
         }
 
         window.addEventListener('DOMContentLoaded', () => {
@@ -600,7 +763,7 @@
         // DEFINICIÓN DE METADATOS SPX (SPXGCTemplateDefinition)
         // =========================================================
         window.SPXGCTemplateDefinition = {
-            "description": "Athlete Focus (Single Competitor Lower-Third)",
+            "description": "Athlete Focus (Horizontal Lower-Third 70% Width)",
             "playserver": "OVERLAY",
             "playchannel": "1",
             "playlayer": "3",
@@ -611,15 +774,14 @@
             "DataFields": [
                 {
                     "ftype": "instruction",
-                    "value": "Displays a single competitor lower-third banner with live apnea timer, photo, AP, RP, and official cards."
+                    "value": "Displays a 70% width horizontal lower-third banner for a single competitor/lane with smooth expand/shrink animations."
                 },
                 {
                     "field": "_LANE_SELECT",
                     "ftype": "dropdown",
-                    "title": "Select Competitor / Lane",
-                    "value": "auto",
+                    "title": "Select Lane",
+                    "value": "1",
                     "items": [
-                        { "text": "Auto (First Active Lane)", "value": "auto" },
                         { "text": "Lane 1", "value": "1" },
                         { "text": "Lane 2", "value": "2" },
                         { "text": "Lane 3", "value": "3" },
@@ -636,51 +798,22 @@
                     "title": "Screen Position",
                     "value": "pos-bottom-left",
                     "items": [
-                        { "text": "Bottom Left (Bottom-Left)", "value": "pos-bottom-left" },
-                        { "text": "Bottom Center (Bottom-Center)", "value": "pos-bottom-center" },
-                        { "text": "Bottom Right (Bottom-Right)", "value": "pos-bottom-right" },
-                        { "text": "Top Left (Top-Left)", "value": "pos-top-left" },
-                        { "text": "Center Screen (Center-Center)", "value": "pos-center-center" }
+                        { "text": "Bottom Left (pos-bottom-left)", "value": "pos-bottom-left" },
+                        { "text": "Bottom Center (pos-bottom-center)", "value": "pos-bottom-center" },
+                        { "text": "Bottom Right (pos-bottom-right)", "value": "pos-bottom-right" },
+                        { "text": "Top Left (pos-top-left)", "value": "pos-top-left" },
+                        { "text": "Top Right (pos-top-right)", "value": "pos-top-right" },
+                        { "text": "Center Screen (pos-center-center)", "value": "pos-center-center" }
                     ]
                 },
                 {
-                    "field": "_SHOW_PHOTO",
+                    "field": "_SHOW_NOTES",
                     "ftype": "dropdown",
-                    "title": "Athlete Photo",
+                    "title": "Notes Column",
                     "value": "true",
                     "items": [
-                        { "text": "Show Photo", "value": "true" },
-                        { "text": "Hide Photo", "value": "false" }
-                    ]
-                },
-                {
-                    "field": "_SHOW_AP",
-                    "ftype": "dropdown",
-                    "title": "AP Column",
-                    "value": "true",
-                    "items": [
-                        { "text": "Show AP", "value": "true" },
-                        { "text": "Hide AP", "value": "false" }
-                    ]
-                },
-                {
-                    "field": "_SHOW_TIMER",
-                    "ftype": "dropdown",
-                    "title": "Live Timer",
-                    "value": "true",
-                    "items": [
-                        { "text": "Show Live Timer", "value": "true" },
-                        { "text": "Hide Live Timer", "value": "false" }
-                    ]
-                },
-                {
-                    "field": "_SHOW_PB",
-                    "ftype": "dropdown",
-                    "title": "Personal Best (PB)",
-                    "value": "true",
-                    "items": [
-                        { "text": "Show PB", "value": "true" },
-                        { "text": "Hide PB", "value": "false" }
+                        { "text": "Show Notes", "value": "true" },
+                        { "text": "Hide Notes", "value": "false" }
                     ]
                 },
                 {
@@ -705,49 +838,43 @@
 
     <div class="SPXWindow">
         <div id="gfx" class="athlete-focus-panel pos-bottom-left">
-            <!-- 1. Andarivel / Lane -->
-            <div class="focus-lane" id="focusLane">1</div>
+            <div class="focus-content" id="focusContent">
+                <!-- 1. Grupo Izquierdo: Bandera, País y Nombre -->
+                <div class="focus-left-group">
+                    <div class="focus-flag-box">
+                        <div class="focus-flag" id="focusFlag"></div>
+                        <div class="focus-country" id="focusCountry"></div>
+                    </div>
 
-            <!-- 2. Avatar / Foto del Atleta -->
-            <div class="focus-avatar-container" id="focusAvatar">
-                <span class="focus-avatar-fallback">A</span>
+                    <div class="focus-divider"></div>
+
+                    <div class="focus-name" id="focusName">ATLETA</div>
+                </div>
+
+                <!-- 2. Grupo Derecho: [STA]  AP: xx:xx  |  RP: xx:xx  |  [card] [notes] -->
+                <div class="focus-right-group">
+                    <div class="focus-discipline" id="focusDiscipline">STA</div>
+
+                    <div class="focus-stat-inline focus-stat-ap" id="focusApBox">
+                        <span class="focus-stat-label">AP:</span>
+                        <span class="focus-stat-value" id="focusApVal">-</span>
+                    </div>
+
+                    <div class="focus-divider"></div>
+
+                    <div class="focus-stat-inline focus-stat-rp" id="focusRpBox">
+                        <span class="focus-stat-label" id="focusRpLabel">RP:</span>
+                        <span class="focus-stat-value" id="focusRpVal">-</span>
+                    </div>
+
+                    <div class="focus-divider"></div>
+
+                    <div class="focus-card-notes-group">
+                        <div class="focus-card-box" id="focusCard"></div>
+                        <div class="focus-notes-box" id="focusNotes"></div>
+                    </div>
+                </div>
             </div>
-
-            <!-- 3. Bandera y País -->
-            <div class="focus-flag" id="focusFlag"></div>
-            <div class="focus-country" id="focusCountry"></div>
-
-            <div class="focus-divider"></div>
-
-            <!-- 4. Nombre del Competidor -->
-            <div class="focus-name" id="focusName">ATLETA</div>
-
-            <!-- 5. Disciplina -->
-            <div class="focus-discipline" id="focusDiscipline">STA</div>
-
-            <!-- 6. AP (Announced Performance) -->
-            <div class="focus-stat-box focus-stat-ap">
-                <span class="focus-stat-label">AP</span>
-                <span class="focus-stat-value" id="focusApVal">-</span>
-            </div>
-
-            <!-- 7. Cronómetro en Vivo -->
-            <div class="focus-timer-box" id="focusTimer" style="display: none;">
-                <span class="focus-timer-pulse"></span>
-                <span class="focus-timer-value" id="focusTimerVal">0:00</span>
-            </div>
-
-            <!-- 8. RP / Resultado Realizado -->
-            <div class="focus-stat-box focus-stat-rp">
-                <span class="focus-stat-label">RP</span>
-                <span class="focus-stat-value" id="focusRpVal">-</span>
-            </div>
-
-            <!-- 9. Tarjeta Oficial -->
-            <div class="focus-card-box" id="focusCard" style="display: none;"></div>
-
-            <!-- 10. PB / Récord Personal -->
-            <span class="focus-pb-badge" id="focusPb" style="display: none;">PB -</span>
         </div>
     </div>
 
@@ -755,10 +882,7 @@
     <div id="hiddenSpxData">
         <div id="_LANE_SELECT"></div>
         <div id="_POSITION"></div>
-        <div id="_SHOW_PHOTO"></div>
-        <div id="_SHOW_AP"></div>
-        <div id="_SHOW_TIMER"></div>
-        <div id="_SHOW_PB"></div>
+        <div id="_SHOW_NOTES"></div>
         <div id="_API_HOST"></div>
         <div id="f99"></div>
     </div>

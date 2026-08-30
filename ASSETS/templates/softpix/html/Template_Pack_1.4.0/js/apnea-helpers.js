@@ -87,6 +87,37 @@ function formatMetric(val, discipline) {
     return String(val);
 }
 
+// Mapas locales para persistencia de marcas de inicio y finalización
+if (typeof window !== 'undefined') {
+    if (!window.localAttemptStartMap) window.localAttemptStartMap = new Map();
+    if (!window.localAttemptFinishMap) window.localAttemptFinishMap = new Map();
+}
+var localAttemptStartMap = (typeof window !== 'undefined') ? window.localAttemptStartMap : new Map();
+var localAttemptFinishMap = (typeof window !== 'undefined') ? window.localAttemptFinishMap : new Map();
+
+// Parsear timestamp a milisegundos de forma robusta
+function parseTimestampMs(str, sessionDate) {
+    if (!str) return 0;
+    if (typeof str === 'number') return str < 10000000000 ? str * 1000 : str;
+    if (typeof str === 'string') {
+        const trimmed = str.trim();
+        if (/^\d+$/.test(trimmed)) {
+            const num = Number(trimmed);
+            return num < 10000000000 ? num * 1000 : num;
+        }
+        const parsed = Date.parse(trimmed);
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+
+        const timeMatch = trimmed.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+        if (timeMatch) {
+            const d = sessionDate ? new Date(sessionDate) : new Date();
+            d.setHours(parseInt(timeMatch[1], 10), parseInt(timeMatch[2], 10), parseInt(timeMatch[3] || '0', 10), 0);
+            return d.getTime();
+        }
+    }
+    return 0;
+}
+
 // Obtener duración de Protocolo de Superficie (SP) según reglas de la competencia
 function getCompetitionSpDuration(competition) {
     if (!competition) return 15;
@@ -100,27 +131,31 @@ function getCompetitionSpDuration(competition) {
     return 15;
 }
 
-// Obtener timestamp de finalización del intento
+// Obtener timestamp de finalización del intento con memoria local estable para SP Timer
 function getAttemptFinishMs(att, nowMs, sessionDate) {
-    if (att && att.performance_finished_at) {
-        let finMs = new Date(att.performance_finished_at).getTime();
-        if (!isNaN(finMs)) return finMs;
-        if (typeof att.performance_finished_at === 'string' && att.performance_finished_at.includes(':')) {
-            const baseDate = sessionDate || new Date().toISOString().slice(0, 10);
-            finMs = new Date(`${baseDate}T${att.performance_finished_at}`).getTime();
-            if (!isNaN(finMs)) return finMs;
-        }
+    if (!att) return nowMs || Date.now();
+    const key = att.attemp_id || `lane_${att.attemp_lane || 1}`;
+
+    let rawFinish = att.performance_finished_at || att.finished_at || att.end_time;
+    if (!rawFinish && Array.isArray(att.judge_updates)) {
+        const finishEv = att.judge_updates.slice().reverse().find(u => 
+            ['PRESTOP', 'STOP', 'FINAL', 'SURFACE', 'DONE'].includes((u.event_type || u.type || '').toUpperCase())
+        );
+        if (finishEv) rawFinish = finishEv.timestamp || finishEv.time || finishEv.created_at;
     }
 
-    if (att && Array.isArray(att.judge_updates)) {
-        const stopEvt = att.judge_updates.find(u => u.event_type === 'PRESTOP' || u.event_type === 'FINAL');
-        if (stopEvt && stopEvt.created_at) {
-            const finMs = new Date(stopEvt.created_at).getTime();
-            if (!isNaN(finMs)) return finMs;
+    let finishMs = parseTimestampMs(rawFinish, sessionDate);
+    if (finishMs > 0) {
+        if (!localAttemptFinishMap.has(key) || Math.abs(localAttemptFinishMap.get(key) - finishMs) > 1500) {
+            localAttemptFinishMap.set(key, finishMs);
         }
+        return localAttemptFinishMap.get(key);
     }
 
-    return nowMs || Date.now();
+    if (!localAttemptFinishMap.has(key)) {
+        localAttemptFinishMap.set(key, nowMs || Date.now());
+    }
+    return localAttemptFinishMap.get(key);
 }
 
 // Normalizar y extraer lista de notas y penalizaciones
@@ -170,9 +205,10 @@ function extractAttemptNotes(att) {
 }
 
 // Resolver tarjeta, clases CSS y HTML de nota según el estado y tarjetas oficiales
-function getAttemptCardAndNotes(att, isJudged, nowMs, competition, clockOffset) {
+function getAttemptCardAndNotes(att, isJudged, nowMs, competition, clockOffset, sessionDate) {
     if (!att) return { cardClass: 'card-none', noteHtml: '' };
 
+    const key = att.attemp_id || `lane_${att.attemp_lane || 1}`;
     const card = (att.attemp_card || '').toLowerCase();
     const isPerforming = att.attemp_status === 'PERFORMING';
     const updates = Array.isArray(att.judge_updates) ? att.judge_updates : [];
@@ -181,7 +217,7 @@ function getAttemptCardAndNotes(att, isJudged, nowMs, competition, clockOffset) 
 
     const isDoneOrSP = (att.attemp_status === 'DONE' || 
                         Boolean(att.performance_finished_at && !card && !isJudged) ||
-                        (updates.some(u => u.event_type === 'PRESTOP' || u.event_type === 'FINAL') && !card && !isJudged))
+                        (updates.some(u => ['PRESTOP', 'STOP', 'FINAL', 'SURFACE', 'DONE'].includes((u.event_type || u.type || '').toUpperCase())) && !card && !isJudged))
                        && !isSpCanceledOrEnded;
 
     let cardClass = 'card-none';
@@ -189,6 +225,7 @@ function getAttemptCardAndNotes(att, isJudged, nowMs, competition, clockOffset) 
 
     // 1. Durante la prueba (PERFORMING): se muestra "PRELIM." en la columna NOTES
     if (isPerforming && !isJudged) {
+        localAttemptFinishMap.delete(key);
         cardClass = 'card-none';
         noteHtml = '<span class="note-badge note-prelim">PRELIM.</span>';
         return { cardClass, noteHtml };
@@ -198,7 +235,7 @@ function getAttemptCardAndNotes(att, isJudged, nowMs, competition, clockOffset) 
     if (isDoneOrSP && !card && !isJudged) {
         cardClass = 'card-none';
         const currentNow = nowMs || (Date.now() - (clockOffset || 0));
-        const finishMs = getAttemptFinishMs(att, currentNow);
+        const finishMs = getAttemptFinishMs(att, currentNow, sessionDate);
         const spTotalDuration = getCompetitionSpDuration(competition);
         const elapsedSpSec = Math.max(0, Math.floor((currentNow - finishMs) / 1000));
         const remainingSpSec = Math.max(0, spTotalDuration - elapsedSpSec);
@@ -213,6 +250,9 @@ function getAttemptCardAndNotes(att, isJudged, nowMs, competition, clockOffset) 
     }
 
     // 3. Cuando tiene tarjeta o estado dictaminado (Juzgamiento realizado)
+    localAttemptFinishMap.delete(key);
+    localAttemptStartMap.delete(key);
+
     const effectiveCard = card || (att.attemp_status === 'DQ' ? 'red' : (att.attemp_status === 'DNS' ? 'dns' : (isJudged ? 'white' : '')));
     if (effectiveCard) {
         // En caso DNS no debe figurar ninguna tarjeta ni notas

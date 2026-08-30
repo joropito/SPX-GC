@@ -378,6 +378,7 @@
   align-items: center;
   padding: 0.5vh 1vw;
   background: rgba(4, 12, 30, 0.7);
+  border-left: var(--theme-accent-width) solid transparent;
   border-bottom: 1px solid var(--theme-border-subtle);
   font-family: 'BOLD';
   font-size: 0.75vw;
@@ -462,8 +463,9 @@
   align-items: center;
   padding: 0.9vh 1vw;
   background: var(--theme-bg-row);
+  border-left: var(--theme-accent-width) solid transparent;
   border-bottom: 1px solid var(--theme-border-subtle);
-  transition: background 0.3s ease, transform 0.2s ease;
+  transition: background 0.3s ease, border-color 0.3s ease;
   box-sizing: border-box;
 }
 
@@ -473,7 +475,7 @@
 
 .apnea-row.is-performing {
   background: var(--theme-bg-row-active);
-  border-left: var(--theme-accent-width) solid var(--theme-brandColor);
+  border-left-color: var(--theme-brandColor);
 }
 
 .apnea-row:last-child {
@@ -613,7 +615,7 @@
 .apnea-col-rp.is-live {
   color: var(--theme-brandColor);
   text-shadow: 0 0 0.5vw var(--theme-brandColor-glow);
-  letter-spacing: 0.03em;
+  letter-spacing: normal;
 }
 
 .apnea-col-card {
@@ -811,189 +813,189 @@
 }
 
 /* =========================================================
-   ESTILOS PARA OVERLAY DE COMPETIDOR INDIVIDUAL (ATHLETE FOCUS)
+   ESTILOS PARA OVERLAY LOWER-THIRD HORIZONTAL (ATHLETE FOCUS)
    ========================================================= */
 
 .athlete-focus-panel {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  background: var(--theme-bg-panel);
-  border: 0.1vw solid var(--theme-border);
-  border-radius: var(--theme-radius);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 0.8vw 2.5vw rgba(0, 0, 0, 0.65), 0 0 1.2vw rgba(0, 217, 255, 0.15);
-  height: 3.8vw;
-  padding: 0 0.8vw 0 0;
+  background: var(--theme-bg-main);
+  border: 1px solid var(--theme-border-color);
+  border-radius: var(--theme-corner-radius);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--theme-shadow);
+  height: 3.2vw;
+  width: 70vw !important;
+  max-width: 70vw !important;
+  min-width: 70vw !important;
   box-sizing: border-box;
   overflow: hidden;
-  gap: 0.6vw;
-  max-width: 90vw;
-  width: max-content;
+  padding: 0 1.2vw;
 }
 
-.focus-lane {
-  background: linear-gradient(135deg, var(--theme-brandColor), #0088cc);
-  color: #03101e;
-  font-family: 'BOLD';
-  font-size: 1.3vw;
-  height: 100%;
-  padding: 0 1vw;
+.focus-content {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  text-shadow: none;
-  letter-spacing: 0.05em;
-  flex-shrink: 0;
-}
-
-.focus-avatar-container {
-  width: 2.8vw;
-  height: 2.8vw;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 0.12vw solid var(--theme-brandColor);
-  box-shadow: 0 0 0.6vw var(--theme-brandColor-glow);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.08);
-  flex-shrink: 0;
-}
-
-.focus-avatar-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  box-sizing: border-box;
+  gap: 0.8vw;
 }
 
-.focus-avatar-fallback {
-  font-family: 'BOLD';
-  font-size: 1vw;
-  color: var(--theme-brandColor);
-  text-transform: uppercase;
+.focus-left-group {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 0.8vw;
+}
+
+.focus-flag-box {
+  display: flex;
+  align-items: center;
+  gap: 0.45vw;
+  flex-shrink: 0;
 }
 
 .focus-flag {
-  width: 2vw;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.2vw;
+  font-size: 1.25vw;
   line-height: 1;
   flex-shrink: 0;
 }
 
 .focus-country {
-  font-family: 'BOLD';
-  font-size: 1.1vw;
+  font-family: 'BOLD', sans-serif;
+  font-size: 1.05vw;
   color: var(--theme-secondary);
   letter-spacing: 0.05em;
   flex-shrink: 0;
 }
 
 .focus-divider {
-  width: 0.08vw;
-  height: 2vw;
-  background: var(--theme-row-border);
+  width: 1px;
+  height: 1.8vw;
+  background: var(--theme-border-subtle);
   flex-shrink: 0;
 }
 
 .focus-name {
-  font-family: 'BOLD';
+  font-family: 'BOLD', sans-serif;
   font-size: 1.25vw;
   color: var(--theme-lite-color);
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   padding-right: 0.4vw;
+  flex: 1 1 auto;
+}
+
+/* Grupo Derecho con Formato Inline y Separadores Verticales */
+.focus-right-group {
+  display: flex;
+  align-items: center;
   flex-shrink: 0;
+  gap: 0.65vw;
 }
 
 .focus-discipline {
-  background: rgba(255, 255, 255, 0.08);
-  border: 0.08vw solid var(--theme-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 229, 255, 0.16);
+  border: 1.5px solid var(--theme-brandColor);
+  box-shadow: 0 0 0.5vw rgba(0, 229, 255, 0.25);
   color: var(--theme-brandColor);
-  font-family: 'BOLD';
-  font-size: 0.85vw;
-  padding: 0.3vw 0.6vw;
+  font-family: 'BLAC', sans-serif;
+  font-size: 0.95vw;
+  padding: 0.22vw 0.65vw;
   border-radius: 0.3vw;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  line-height: 1;
+}
+
+.focus-stat-inline {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.35vw;
   flex-shrink: 0;
 }
 
-.focus-stat-box {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-end;
-  padding: 0 0.5vw;
-  flex-shrink: 0;
+.focus-stat-ap {
+  width: 6.6vw;
+  justify-content: flex-end;
+}
+
+.focus-stat-rp {
+  width: 7.2vw;
+  justify-content: flex-end;
 }
 
 .focus-stat-label {
-  font-family: 'BOLD';
-  font-size: 0.65vw;
+  font-family: 'BOLD', sans-serif;
+  font-size: 0.82vw;
   color: var(--theme-secondary);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   line-height: 1;
-  margin-bottom: 0.15vw;
+  text-transform: uppercase;
 }
 
 .focus-stat-value {
-  font-family: 'BOLD';
-  font-size: 1.1vw;
+  font-family: 'BOLD', sans-serif;
+  font-size: 1.15vw;
   color: var(--theme-lite-color);
-  line-height: 1.1;
+  line-height: 1;
   white-space: nowrap;
 }
 
-.focus-timer-box {
-  background: rgba(0, 0, 0, 0.4);
-  border: 0.08vw solid var(--theme-brandColor);
-  box-shadow: inset 0 0 0.6vw rgba(0, 217, 255, 0.2);
-  border-radius: 0.4vw;
-  padding: 0.3vw 0.8vw;
+.focus-stat-rp.is-live .focus-stat-value {
+  color: var(--theme-brandColor);
+  text-shadow: 0 0 0.5vw var(--theme-brandColor-glow);
+}
+
+.focus-stat-rp.is-live .focus-stat-label {
+  color: var(--theme-brandColor);
+}
+
+.focus-card-notes-group {
   display: flex;
   align-items: center;
   gap: 0.4vw;
+  width: 10vw;
   flex-shrink: 0;
 }
 
-.focus-timer-pulse {
-  width: 0.55vw;
-  height: 0.55vw;
-  border-radius: 50%;
-  background: var(--theme-brandColor);
-  box-shadow: 0 0 0.5vw var(--theme-brandColor);
-  animation: live-pulse-anim 1.5s infinite ease-in-out;
-}
-
-.focus-timer-value {
-  font-family: 'BOLD';
-  font-size: 1.2vw;
-  color: var(--theme-brandColor);
-  letter-spacing: 0.04em;
-  line-height: 1;
-}
-
 .focus-card-box {
+  width: 1.8vw;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  padding: 0 0.3vw;
+  box-sizing: border-box;
+  min-height: 1.5vw;
 }
 
-.focus-pb-badge {
-  background: rgba(255, 215, 0, 0.15);
-  border: 0.08vw solid rgba(255, 215, 0, 0.6);
-  color: #ffd700;
-  font-family: 'BOLD';
-  font-size: 0.8vw;
-  padding: 0.3vw 0.6vw;
-  border-radius: 0.3vw;
-  letter-spacing: 0.05em;
+.focus-notes-box {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
   flex-shrink: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+  white-space: nowrap;
+  min-height: 1.5vw;
 }
 
 

@@ -715,11 +715,20 @@
 
                 const isJudged = att.attemp_status === 'JUDGED' || att.attemp_status === 'DQ' || Boolean(att.attemp_card) || att.attemp_status === 'DNS';
                 const isPerforming = att.attemp_status === 'PERFORMING';
-                const cardInfo = getAttemptCardAndNotes(att, isJudged, nowMs, appState.competition, clockOffset);
+                const updates = Array.isArray(att.judge_updates) ? att.judge_updates : [];
+                const isSpCanceledOrEnded = att.sp_canceled || att.sp_cancelled || att.sp_ended || 
+                                            updates.some(u => ['SP_CANCEL', 'SP_END', 'CANCEL_SP', 'END_SP', 'CANCEL'].includes((u.event_type || u.type || '').toUpperCase()));
+
+                const isDoneOrSP = (att.attemp_status === 'DONE' || 
+                                    Boolean(att.performance_finished_at && !att.attemp_card && !isJudged) ||
+                                    (updates.some(u => ['PRESTOP', 'STOP', 'FINAL', 'SURFACE', 'DONE'].includes((u.event_type || u.type || '').toUpperCase())) && !att.attemp_card && !isJudged))
+                                   && !isSpCanceledOrEnded;
+
+                const cardInfo = getAttemptCardAndNotes(att, isJudged, nowMs, appState.competition, clockOffset, appState.session_date);
 
                 // Actualizar estado de fila
                 if (rowEl) {
-                    if (isPerforming) rowEl.classList.add('is-performing');
+                    if (isPerforming || isDoneOrSP) rowEl.classList.add('is-performing');
                     else rowEl.classList.remove('is-performing');
                 }
 
@@ -747,7 +756,7 @@
                         resultDisplay = formatMetric(val, heatInfo.discipline);
                     }
                     rpEl.innerHTML = htmlDecode(resultDisplay);
-                } else if (isPerforming) {
+                } else if (isPerforming || isDoneOrSP) {
                     rpEl.classList.add('is-live');
                     if (isDynamic) {
                         const athlete = athletesList.find(a => a.athlete_id === att.athlete_id) || {};
@@ -756,36 +765,44 @@
                             athlete_gender: athlete.athlete_gender || att.athlete_gender || 'M',
                             attemp_discipline: heatInfo.discipline
                         };
+                        const calcTime = isDoneOrSP ? getAttemptFinishMs(att, nowMs, appState.session_date) : nowMs;
                         const estimatedMeters = calculateLiveDynamicDistance(
                             attemptForCalc,
                             appState.competition,
-                            nowMs,
-                            true
+                            calcTime,
+                            !isDoneOrSP
                         );
                         rpEl.innerHTML = `${estimatedMeters} m`;
                     } else {
-                        // STA: Cálculo horario local
-                        let rawStartTime = att.started_at || att.start_time || att.performance_started_at || att.timestamp || att.locked_at;
-                        if (!rawStartTime && Array.isArray(att.judge_updates) && att.judge_updates.length > 0) {
-                            const startEv = att.judge_updates.find(u => u.event_type === 'START' || u.type === 'START') || att.judge_updates[0];
-                            if (startEv) rawStartTime = startEv.timestamp || startEv.time;
+                        // STA: Cálculo horario local continuo y estable
+                        let rawStartTime = att.started_at || att.start_time || att.performance_started_at || att.timestamp;
+                        if (!rawStartTime && Array.isArray(att.judge_updates)) {
+                            const startEv = att.judge_updates.find(u => (u.event_type || u.type || '').toUpperCase() === 'START');
+                            if (startEv) rawStartTime = startEv.timestamp || startEv.time || startEv.created_at;
                         }
 
                         const attemptKey = att.attemp_id || `lane_${lane}`;
-                        let startMs = parseTimestampMs(rawStartTime, appState.session_date);
-                        if (startMs === 0) {
-                            if (!localAttemptStartMap.has(attemptKey)) {
-                                localAttemptStartMap.set(attemptKey, nowMs);
+                        let parsedStartMs = parseTimestampMs(rawStartTime, appState.session_date);
+
+                        if (parsedStartMs > 0) {
+                            if (!localAttemptStartMap.has(attemptKey) || Math.abs(localAttemptStartMap.get(attemptKey) - parsedStartMs) > 1500) {
+                                localAttemptStartMap.set(attemptKey, parsedStartMs);
                             }
-                            startMs = localAttemptStartMap.get(attemptKey);
+                        } else if (!localAttemptStartMap.has(attemptKey)) {
+                            localAttemptStartMap.set(attemptKey, nowMs);
                         }
 
-                        const elapsedSec = Math.max(0, (nowMs - startMs) / 1000);
+                        const startMs = localAttemptStartMap.get(attemptKey);
+                        const endMs = isDoneOrSP ? getAttemptFinishMs(att, nowMs, appState.session_date) : nowMs;
+                        const elapsedSec = Math.max(0, (endMs - startMs) / 1000);
                         const mins = Math.floor(elapsedSec / 60);
                         const secs = Math.floor(elapsedSec % 60);
                         rpEl.innerHTML = `${mins}:${String(secs).padStart(2, '0')}`;
                     }
                 } else {
+                    const attemptKey = att.attemp_id || `lane_${lane}`;
+                    localAttemptStartMap.delete(attemptKey);
+                    liveTrackers.delete(attemptKey);
                     rpEl.classList.remove('is-live');
                     rpEl.innerHTML = htmlDecode(formatMetric(att.preliminary_result || att.attemp_rp || '-', heatInfo.discipline));
                 }

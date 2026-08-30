@@ -196,7 +196,7 @@
 
             const apiBase = getApiBaseUrl();
             try {
-                eventSource = new EventSource(`${apiBase}/api/live`);
+                eventSource = new EventSource(`${apiBase}/api/events`);
 
                 eventSource.onopen = () => {
                     loadInitialData();
@@ -437,16 +437,12 @@
                 // Resultado AP
                 const apFormatted = formatMetric(att.attemp_ap, attDiscipline || sessionInfo.discipline);
 
-                // Resultado RP
+                // Resultado RP: Solo mostrar RP real oficial (juzgados, DQ o DNS)
                 let rpFormatted = '-';
-                let rpLiveClass = '';
                 if (isJudged) {
                     if (att.attemp_card === 'red' || att.attemp_status === 'DQ') rpFormatted = 'DQ';
                     else if (att.attemp_card === 'dns' || att.attemp_status === 'DNS') rpFormatted = 'DNS';
                     else rpFormatted = formatMetric(att.official_result || att.attemp_rp, attDiscipline || sessionInfo.discipline);
-                } else if (isPerforming) {
-                    rpLiveClass = 'is-live';
-                    rpFormatted = formatMetric(att.preliminary_result || '0:00', attDiscipline || sessionInfo.discipline);
                 }
 
                 const rowPerformingClass = isPerforming ? 'is-performing' : '';
@@ -460,7 +456,7 @@
                     <div class="apnea-col-athlete" title="${htmlDecode(name)}">${htmlDecode(name)}</div>
                     <div class="apnea-col-discipline">${htmlDecode(attDiscipline)}</div>
                     <div class="apnea-col-ap">${htmlDecode(apFormatted)}</div>
-                    <div class="apnea-col-rp ${rpLiveClass}" id="session-rp-${att.attemp_id}">${htmlDecode(rpFormatted)}</div>
+                    <div class="apnea-col-rp" id="session-rp-${att.attemp_id}">${htmlDecode(rpFormatted)}</div>
                     <div class="apnea-col-card">
                         <span class="card-indicator ${cardInfo.cardClass}" id="session-card-${att.attemp_id}"></span>
                     </div>
@@ -540,44 +536,9 @@
                     else if (att.attemp_card === 'dns' || att.attemp_status === 'DNS') resultDisplay = 'DNS';
                     else resultDisplay = formatMetric(att.official_result || att.attemp_rp, sessionInfo.discipline);
                     rpEl.innerHTML = htmlDecode(resultDisplay);
-                } else if (isPerforming) {
-                    rpEl.classList.add('is-live');
-                    if (isDynamic) {
-                        const athlete = athletesList.find(a => a.athlete_id === att.athlete_id) || {};
-                        const attemptForCalc = {
-                            ...att,
-                            athlete_country: athlete.athlete_country || att.athlete_country || '',
-                            athlete_name: athlete.athlete_name || att.athlete_name || ''
-                        };
-                        const estimatedMeters = calculateLiveDynamicDistance(
-                            attemptForCalc,
-                            appState.competition,
-                            nowMs,
-                            true
-                        );
-                        rpEl.innerHTML = `${estimatedMeters} m`;
-                    } else {
-                        // STA: Cálculo horario local
-                        let rawStartTime = att.started_at || att.start_time || att.performance_started_at || att.timestamp || att.locked_at;
-                        if (!rawStartTime && Array.isArray(att.judge_updates) && att.judge_updates.length > 0) {
-                            const startEv = att.judge_updates.find(u => u.event_type === 'START' || u.type === 'START') || att.judge_updates[0];
-                            if (startEv) rawStartTime = startEv.timestamp || startEv.time;
-                        }
-
-                        const attemptKey = att.attemp_id || `lane_${att.attemp_lane || 1}`;
-                        let startMs = parseTimestampMs(rawStartTime, sessionInfo.sessionDate);
-                        if (startMs === 0) {
-                            if (!localAttemptStartMap.has(attemptKey)) {
-                                localAttemptStartMap.set(attemptKey, nowMs);
-                            }
-                            startMs = localAttemptStartMap.get(attemptKey);
-                        }
-
-                        const elapsedSec = Math.max(0, (nowMs - startMs) / 1000);
-                        const mins = Math.floor(elapsedSec / 60);
-                        const secs = Math.floor(elapsedSec % 60);
-                        rpEl.innerHTML = `${mins}:${String(secs).padStart(2, '0')}`;
-                    }
+                } else {
+                    rpEl.classList.remove('is-live');
+                    rpEl.innerHTML = '-';
                 }
             });
         }
