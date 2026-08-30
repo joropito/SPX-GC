@@ -36,6 +36,47 @@
             flex-direction: column;
             transform-origin: center center;
             will-change: transform, opacity;
+            width: max-content !important;
+            max-width: 90vw !important;
+            min-width: 0 !important;
+        }
+
+        /* Ancho compacto para nombre de atleta (< 18 letras) en Heat Overview */
+        #gfx .head-athlete,
+        #gfx .apnea-col-athlete {
+            width: 12.2vw !important;
+            max-width: 12.2vw !important;
+            flex: 0 0 12.2vw !important;
+        }
+
+        /* Ancho reducido y ajustado para columna de Notas */
+        #gfx .head-notes,
+        #gfx .apnea-col-notes {
+            width: 4.8vw !important;
+            max-width: 4.8vw !important;
+            flex: 0 0 4.8vw !important;
+        }
+
+        /* Ocultar columna AP y restar automáticamente ese espacio del recuadro */
+        #gfx.hide-ap .head-ap,
+        #gfx.hide-ap .apnea-col-ap {
+            display: none !important;
+            width: 0 !important;
+            max-width: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            flex: 0 0 0 !important;
+        }
+
+        /* Ocultar columna de notas y restar automáticamente ese espacio del recuadro */
+        #gfx.hide-notes .head-notes,
+        #gfx.hide-notes .apnea-col-notes {
+            display: none !important;
+            width: 0 !important;
+            max-width: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            flex: 0 0 0 !important;
         }
     </style>
 
@@ -89,12 +130,13 @@
             const targetPos = spxPos || urlPos;
 
             if (targetPos) {
-                if (targetPos.includes('bottom-right')) positionClass = 'pos-bottom-right';
+                if (targetPos.includes('center-center') || targetPos === 'pos-center-center') positionClass = 'pos-center-center';
+                else if (targetPos.includes('bottom-right')) positionClass = 'pos-bottom-right';
                 else if (targetPos.includes('top-left')) positionClass = 'pos-top-left';
                 else if (targetPos.includes('top-right')) positionClass = 'pos-top-right';
                 else if (targetPos.includes('center-left')) positionClass = 'pos-center-left';
                 else if (targetPos.includes('center-right')) positionClass = 'pos-center-right';
-                else if (targetPos.includes('bottom-center') || targetPos.includes('center')) positionClass = 'pos-bottom-center';
+                else if (targetPos.includes('bottom-center')) positionClass = 'pos-bottom-center';
                 else positionClass = 'pos-bottom-left';
             }
 
@@ -115,22 +157,58 @@
                 else sizeClass = 'size-standard';
             }
 
-            // Resetear clases de posicion y tamaño previas
-            gfx.className = `apnea-panel ${positionClass} ${sizeClass}`;
+            // 3. Show / Hide AP
+            const spxAp = e('_SHOW_AP') ? e('_SHOW_AP').innerText.trim().toLowerCase() : '';
+            let urlAp = '';
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                urlAp = (urlParams.get('ap') || urlParams.get('showap') || '').toLowerCase();
+            } catch (_) {}
+            const targetAp = spxAp || urlAp;
+            const hideApClass = (targetAp === 'false' || targetAp === '0' || targetAp === 'hide' || targetAp === 'no') ? 'hide-ap' : '';
+
+            // 4. Show / Hide Notes
+            const spxNotes = e('_SHOW_NOTES') ? e('_SHOW_NOTES').innerText.trim().toLowerCase() : '';
+            let urlNotes = '';
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                urlNotes = (urlParams.get('notes') || urlParams.get('shownotes') || '').toLowerCase();
+            } catch (_) {}
+            const targetNotes = spxNotes || urlNotes;
+            const hideNotesClass = (targetNotes === 'false' || targetNotes === '0' || targetNotes === 'hide' || targetNotes === 'no') ? 'hide-notes' : '';
+
+            // Resetear clases de posicion, tamaño, ap y notas previas
+            gfx.className = `apnea-panel ${positionClass} ${sizeClass} ${hideApClass} ${hideNotesClass}`.replace(/\s+/g, ' ').trim();
         }
 
         // Formateador inteligente de marcas según disciplina
         function formatMetric(val, discipline) {
-            if (!val || val === '' || val === 'undefined' || val === 'null') return '-';
+            if (!val || val === '' || val === 'undefined' || val === 'null' || val === '-') return '-';
             const strVal = val.toString().trim();
             if (strVal === 'DNS' || strVal === 'DQ' || strVal === 'EN CURSO') return strVal;
             
-            if (discipline === 'STA') {
-                return strVal; // Formato MM:SS
+            const disc = (discipline || '').toUpperCase();
+            if (disc === 'STA') {
+                if (strVal.includes(':')) {
+                    if (strVal.startsWith('0') && strVal.indexOf(':') === 2) {
+                        return strVal.substring(1);
+                    }
+                    return strVal;
+                }
+                const sec = parseFloat(strVal);
+                if (!isNaN(sec)) {
+                    const s = Math.max(0, Math.floor(sec));
+                    const mins = Math.floor(s / 60);
+                    const secs = s % 60;
+                    return `${mins}:${String(secs).padStart(2, '0')}`;
+                }
+                return strVal;
             } else {
-                // Disciplinas de distancia DYN / DYNB / DNF
-                if (!strVal.includes('m') && !isNaN(parseFloat(strVal))) {
-                    return `${strVal} m`;
+                // Disciplinas de distancia DYN / DYNB / DNF: Sin decimales
+                const cleaned = strVal.replace(/m$/i, '').trim();
+                const num = parseFloat(cleaned);
+                if (!isNaN(num)) {
+                    return `${Math.round(num)} m`;
                 }
                 return strVal;
             }
@@ -705,7 +783,7 @@
                         const elapsedSec = Math.max(0, (nowMs - startMs) / 1000);
                         const mins = Math.floor(elapsedSec / 60);
                         const secs = Math.floor(elapsedSec % 60);
-                        rpEl.innerHTML = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                        rpEl.innerHTML = `${mins}:${String(secs).padStart(2, '0')}`;
                     }
                 } else {
                     rpEl.classList.remove('is-live');
@@ -860,39 +938,60 @@
             "DataFields": [
                 {
                     "ftype": "instruction",
-                    "value": "Muestra el heat actual en vivo con todos sus andariveles, AP, RP y tarjetas oficiales conectado vía SSE."
+                    "value": "Displays the active heat in real time with all lanes, AP, RP, and official judge cards connected via SSE."
                 },
                 {
                     "field": "_POSITION",
                     "ftype": "dropdown",
-                    "title": "Posición en Pantalla",
+                    "title": "Screen Position",
                     "value": "pos-bottom-left",
                     "items": [
-                        { "text": "Inferior Izquierda (Bottom-Left)", "value": "pos-bottom-left" },
-                        { "text": "Inferior Derecha (Bottom-Right)", "value": "pos-bottom-right" },
-                        { "text": "Superior Izquierda (Top-Left)", "value": "pos-top-left" },
-                        { "text": "Superior Derecha (Top-Right)", "value": "pos-top-right" },
-                        { "text": "Centro Izquierda (Center-Left)", "value": "pos-center-left" },
-                        { "text": "Centro Derecha (Center-Right)", "value": "pos-center-right" },
-                        { "text": "Inferior Centro (Bottom-Center)", "value": "pos-bottom-center" }
+                        { "text": "Center Screen (Center-Center)", "value": "pos-center-center" },
+                        { "text": "Bottom Left (Bottom-Left)", "value": "pos-bottom-left" },
+                        { "text": "Bottom Right (Bottom-Right)", "value": "pos-bottom-right" },
+                        { "text": "Top Left (Top-Left)", "value": "pos-top-left" },
+                        { "text": "Top Right (Top-Right)", "value": "pos-top-right" },
+                        { "text": "Center Left (Center-Left)", "value": "pos-center-left" },
+                        { "text": "Center Right (Center-Right)", "value": "pos-center-right" },
+                        { "text": "Bottom Center (Bottom-Center)", "value": "pos-bottom-center" }
                     ]
                 },
                 {
                     "field": "_SIZE",
                     "ftype": "dropdown",
-                    "title": "Tamaño del Recuadro",
+                    "title": "Panel Size",
                     "value": "size-standard",
                     "items": [
-                        { "text": "Compacto (40% pantalla)", "value": "size-compact" },
-                        { "text": "Estándar (50% pantalla)", "value": "size-standard" },
-                        { "text": "Ancho (62% pantalla)", "value": "size-wide" },
-                        { "text": "Completo (75% pantalla)", "value": "size-full" }
+                        { "text": "Compact (40% width)", "value": "size-compact" },
+                        { "text": "Standard (50% width)", "value": "size-standard" },
+                        { "text": "Wide (62% width)", "value": "size-wide" },
+                        { "text": "Full (75% width)", "value": "size-full" }
+                    ]
+                },
+                {
+                    "field": "_SHOW_AP",
+                    "ftype": "dropdown",
+                    "title": "AP Column",
+                    "value": "true",
+                    "items": [
+                        { "text": "Show AP", "value": "true" },
+                        { "text": "Hide AP", "value": "false" }
+                    ]
+                },
+                {
+                    "field": "_SHOW_NOTES",
+                    "ftype": "dropdown",
+                    "title": "Notes Column",
+                    "value": "true",
+                    "items": [
+                        { "text": "Show Notes", "value": "true" },
+                        { "text": "Hide Notes", "value": "false" }
                     ]
                 },
                 {
                     "field": "f99",
                     "ftype": "filelist",
-                    "title": "Tema Visual",
+                    "title": "Visual Theme",
                     "assetfolder": "./themes/",
                     "extension": "css",
                     "value": "./themes/Apnea_Broadcast.css"
@@ -900,7 +999,7 @@
                 {
                     "field": "_API_HOST",
                     "ftype": "textfield",
-                    "title": "API Host URL (opcional)",
+                    "title": "API Host URL (Optional)",
                     "value": ""
                 }
             ]
@@ -951,6 +1050,8 @@
     <div id="hiddenSpxData">
         <div id="_POSITION"></div>
         <div id="_SIZE"></div>
+        <div id="_SHOW_AP"></div>
+        <div id="_SHOW_NOTES"></div>
         <div id="_API_HOST"></div>
         <div id="f99"></div>
     </div>

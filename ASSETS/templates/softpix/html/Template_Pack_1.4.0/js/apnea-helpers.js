@@ -1,7 +1,27 @@
-﻿/**
+/**
  * apnea-helpers.js
  * Funciones utilitarias compartidas para templates de transmisión SPX de Apnea.
  */
+
+// Obtener Host de la API de forma centralizada y segura
+function getApiBaseUrl() {
+    try {
+        const spxEl = (typeof document !== 'undefined') ? document.getElementById('_API_HOST') : null;
+        const spxHost = spxEl ? spxEl.innerText.trim() : '';
+        if (spxHost !== '') return spxHost.replace(/\/$/, '');
+
+        if (typeof window !== 'undefined' && window.location) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const paramHost = urlParams.get('api') || urlParams.get('host') || urlParams.get('api_host');
+            if (paramHost) return paramHost.replace(/\/$/, '');
+
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                return `${window.location.protocol}//${window.location.hostname}:3100`;
+            }
+        }
+    } catch (_) {}
+    return "https://apnea.glamsi.com";
+}
 
 // Decodificar entidades HTML de forma segura
 function htmlDecode(txt) {
@@ -14,13 +34,13 @@ function htmlDecode(txt) {
     }
 }
 
-// Formatear segundos en mm:ss
+// Formatear segundos en m:ss (sin cero a la izquierda en minutos)
 function formatSeconds(totalSec) {
-    if (isNaN(totalSec) || totalSec === null || totalSec === undefined) return '00:00';
+    if (isNaN(totalSec) || totalSec === null || totalSec === undefined) return '0:00';
     const s = Math.max(0, Math.floor(totalSec));
     const mins = Math.floor(s / 60);
     const secs = s % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    return `${mins}:${String(secs).padStart(2, '0')}`;
 }
 
 // Parsear formato mm:ss o segundos numéricos a segundos enteros
@@ -37,17 +57,33 @@ function parseFormattedTime(val) {
     return parseFloat(str) || 0;
 }
 
-// Formatear métrica según disciplina (Tiempo para STA, Metros para dinámicas)
+// Formatear métrica según disciplina (Tiempo sin 0 a la izquierda para STA, Metros sin decimales para dinámicas)
 function formatMetric(val, discipline) {
     if (!val || val === '-' || val === '') return '-';
     const disc = (discipline || '').toUpperCase();
     if (disc === 'STA') {
-        if (typeof val === 'string' && val.includes(':')) return val;
+        if (typeof val === 'string') {
+            const strVal = val.trim();
+            if (strVal === 'DNS' || strVal === 'DQ' || strVal === 'EN CURSO') return strVal;
+            if (strVal.includes(':')) {
+                // Elimina 0 inicial en minutos: "03:45" -> "3:45", "00:25" -> "0:25"
+                if (strVal.startsWith('0') && strVal.indexOf(':') === 2) {
+                    return strVal.substring(1);
+                }
+                return strVal;
+            }
+            const sec = parseFloat(strVal);
+            if (!isNaN(sec)) return formatSeconds(sec);
+            return strVal;
+        }
         return formatSeconds(parseFloat(val));
     }
-    if (typeof val === 'number') return `${val.toFixed(2)} m`;
-    const num = parseFloat(val);
-    if (!isNaN(num)) return `${num.toFixed(2)} m`;
+    // Disciplinas de distancia DYN / DYNB / DNF / etc: Sin decimales
+    if (typeof val === 'string' && (val === 'DNS' || val === 'DQ' || val === 'EN CURSO')) return val;
+    if (typeof val === 'number') return `${Math.round(val)} m`;
+    const cleanedStr = String(val).replace(/m$/i, '').trim();
+    const num = parseFloat(cleanedStr);
+    if (!isNaN(num)) return `${Math.round(num)} m`;
     return String(val);
 }
 

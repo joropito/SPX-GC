@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="utf-8" />
@@ -36,6 +36,17 @@
             transform-origin: center center;
             will-change: transform, opacity, clip-path;
         }
+
+        /* Ocultar columna de notas y restar automáticamente ese espacio */
+        #gfx.hide-notes .head-notes,
+        #gfx.hide-notes .apnea-col-notes {
+            display: none !important;
+            width: 0 !important;
+            max-width: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            flex: 0 0 0 !important;
+        }
     </style>
 
     <script>
@@ -43,20 +54,6 @@
         function e(elementID) {
             if (!elementID) return null;
             return document.getElementById(elementID);
-        }
-
-        // Obtener Host de la API
-        function getApiBaseUrl() {
-            const spxHost = e('_API_HOST') ? e('_API_HOST').innerText.trim() : '';
-            if (spxHost !== '') return spxHost.replace(/\/$/, '');
-            
-            if (typeof window !== 'undefined' && window.location) {
-                const urlParams = new URLSearchParams(window.location.search);
-                const queryHost = urlParams.get('api_host') || urlParams.get('host');
-                if (queryHost) return queryHost.replace(/\/$/, '');
-                return `${window.location.protocol}//${window.location.hostname}:9443`;
-            }
-            return 'https://localhost:9443';
         }
 
         // Parsear timestamps
@@ -113,21 +110,61 @@
             return Math.round(sec * 1000);
         }
 
+        // Aplicar Posición y Tamaño al Recuadro desde Configuración SPX
         function applyLayoutConfig() {
             const gfx = e('gfx');
             if (!gfx) return;
 
-            const posClass = (e('_POSITION') && e('_POSITION').innerText.trim()) ? e('_POSITION').innerText.trim() : 'pos-bottom-left';
-            const sizeClass = (e('_SIZE') && e('_SIZE').innerText.trim()) ? e('_SIZE').innerText.trim() : 'size-wide';
+            // 1. Posición
+            let positionClass = 'pos-bottom-left';
+            const spxPos = e('_POSITION') ? e('_POSITION').innerText.trim().toLowerCase() : '';
+            let urlPos = '';
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                urlPos = (urlParams.get('pos') || urlParams.get('position') || '').toLowerCase();
+            } catch (_) {}
+            const targetPos = spxPos || urlPos;
 
-            // Remover clases previas
-            gfx.classList.remove(
-                'pos-bottom-left', 'pos-bottom-right', 'pos-top-left', 'pos-top-right',
-                'pos-center-left', 'pos-center-right', 'pos-bottom-center',
-                'size-compact', 'size-standard', 'size-wide', 'size-full'
-            );
+            if (targetPos) {
+                if (targetPos.includes('center-center') || targetPos === 'pos-center-center') positionClass = 'pos-center-center';
+                else if (targetPos.includes('bottom-right')) positionClass = 'pos-bottom-right';
+                else if (targetPos.includes('top-left')) positionClass = 'pos-top-left';
+                else if (targetPos.includes('top-right')) positionClass = 'pos-top-right';
+                else if (targetPos.includes('center-left')) positionClass = 'pos-center-left';
+                else if (targetPos.includes('center-right')) positionClass = 'pos-center-right';
+                else if (targetPos.includes('bottom-center')) positionClass = 'pos-bottom-center';
+                else positionClass = 'pos-bottom-left';
+            }
 
-            gfx.classList.add(posClass, sizeClass);
+            // 2. Tamaño
+            let sizeClass = 'size-wide';
+            const spxSize = e('_SIZE') ? e('_SIZE').innerText.trim().toLowerCase() : '';
+            let urlSize = '';
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                urlSize = (urlParams.get('size') || '').toLowerCase();
+            } catch (_) {}
+            const targetSize = spxSize || urlSize;
+
+            if (targetSize) {
+                if (targetSize.includes('compact')) sizeClass = 'size-compact';
+                else if (targetSize.includes('standard')) sizeClass = 'size-standard';
+                else if (targetSize.includes('wide')) sizeClass = 'size-wide';
+                else if (targetSize.includes('full')) sizeClass = 'size-full';
+            }
+
+            // 3. Mostrar / Ocultar Notas
+            const spxNotes = e('_SHOW_NOTES') ? e('_SHOW_NOTES').innerText.trim().toLowerCase() : '';
+            let urlNotes = '';
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                urlNotes = (urlParams.get('notes') || urlParams.get('shownotes') || '').toLowerCase();
+            } catch (_) {}
+            const targetNotes = spxNotes || urlNotes;
+            const hideNotesClass = (targetNotes === 'false' || targetNotes === '0' || targetNotes === 'hide' || targetNotes === 'no') ? 'hide-notes' : '';
+
+            // Resetear clases y aplicar
+            gfx.className = `apnea-panel session-table ${positionClass} ${sizeClass} ${hideNotesClass}`.trim();
             itemsPerPage = getItemsPerPageConfig();
             pageDurationMs = getPageDurationConfig();
         }
@@ -228,6 +265,113 @@
             };
         }
 
+        let pageSlices = [];
+
+        // Calcular distribución equilibrada agrupando por heats (OT) completos
+        function calculateOtAwarePageSlices(attempts, maxPerPage) {
+            if (!attempts || attempts.length === 0) return [];
+            if (attempts.length <= maxPerPage) {
+                return [{ start: 0, end: attempts.length, count: attempts.length }];
+            }
+
+            // 1. Agrupar intentos contiguos con el mismo OT (Heat)
+            const otGroups = [];
+            let currentOt = null;
+            let curGroupIndices = [];
+
+            attempts.forEach((att, idx) => {
+                const ot = (att.attemp_ot || '').trim();
+                if (ot !== currentOt && currentOt !== null) {
+                    otGroups.push({ ot: currentOt, start: curGroupIndices[0], end: idx, count: curGroupIndices.length });
+                    currentOt = ot;
+                    curGroupIndices = [idx];
+                } else {
+                    if (currentOt === null) currentOt = ot;
+                    curGroupIndices.push(idx);
+                }
+            });
+            if (curGroupIndices.length > 0) {
+                otGroups.push({ ot: currentOt, start: curGroupIndices[0], end: attempts.length, count: curGroupIndices.length });
+            }
+
+            if (otGroups.length <= 1) {
+                return [{ start: 0, end: attempts.length, count: attempts.length }];
+            }
+
+            // 2. Empaquetamiento greedy respetando que ningún OT quede cortado
+            let greedyPages = [];
+            let gList = [];
+            let gCount = 0;
+            for (const g of otGroups) {
+                if (gCount + g.count > maxPerPage && gList.length > 0) {
+                    greedyPages.push(gList);
+                    gList = [g];
+                    gCount = g.count;
+                } else {
+                    gList.push(g);
+                    gCount += g.count;
+                }
+            }
+            if (gList.length > 0) greedyPages.push(gList);
+
+            const numPages = greedyPages.length;
+            if (numPages <= 1) {
+                return [{ start: 0, end: attempts.length, count: attempts.length }];
+            }
+
+            // 3. Distribución equilibrada proporcional de heats entre páginas
+            const totalHeats = otGroups.length;
+            let baseHeats = Math.floor(totalHeats / numPages);
+            let remainderHeats = totalHeats % numPages;
+
+            let canUseHeatsDistribution = true;
+            let heatIndex = 0;
+            for (let p = 0; p < numPages; p++) {
+                let countHeats = baseHeats + (p < remainderHeats ? 1 : 0);
+                let itemsInPage = 0;
+                for (let h = 0; h < countHeats; h++) {
+                    if (heatIndex + h < totalHeats) {
+                        itemsInPage += otGroups[heatIndex + h].count;
+                    }
+                }
+                if (itemsInPage > maxPerPage && countHeats > 1) {
+                    canUseHeatsDistribution = false;
+                    break;
+                }
+                heatIndex += countHeats;
+            }
+
+            let finalGroupSlices = [];
+            if (canUseHeatsDistribution) {
+                let hIdx = 0;
+                for (let p = 0; p < numPages; p++) {
+                    let countHeats = baseHeats + (p < remainderHeats ? 1 : 0);
+                    let pageGroupSlice = [];
+                    for (let h = 0; h < countHeats; h++) {
+                        if (hIdx < totalHeats) {
+                            pageGroupSlice.push(otGroups[hIdx]);
+                            hIdx++;
+                        }
+                    }
+                    if (pageGroupSlice.length > 0) {
+                        finalGroupSlices.push(pageGroupSlice);
+                    }
+                }
+            } else {
+                finalGroupSlices = greedyPages;
+            }
+
+            return finalGroupSlices.map(groupSlice => {
+                const first = groupSlice[0];
+                const last = groupSlice[groupSlice.length - 1];
+                return {
+                    start: first.start,
+                    end: last.end,
+                    count: last.end - first.start
+                };
+            });
+        }
+
         // Sincronizar datos y páginas de la sesión
         function syncSessionData() {
             const sessionInfo = getActiveSessionInfo();
@@ -235,17 +379,15 @@
 
             currentSessionAttempts = sessionInfo.attempts;
             itemsPerPage = getItemsPerPageConfig();
-            totalPages = Math.max(1, Math.ceil(currentSessionAttempts.length / itemsPerPage));
+            pageSlices = calculateOtAwarePageSlices(currentSessionAttempts, itemsPerPage);
+            totalPages = Math.max(1, pageSlices.length);
 
             if (currentPageIndex >= totalPages) {
                 currentPageIndex = 0;
             }
 
-            // Actualizar encabezados con los datos de la sesión activa
-            if (e('sessionDiscipline')) e('sessionDiscipline').innerText = sessionInfo.discipline;
+            // Actualizar título de la sesión activa
             if (e('sessionTitle')) e('sessionTitle').innerText = sessionInfo.sessionName;
-            
-            updatePageBadge();
 
             // Renderizar la página actual si no está en medio de una transición
             if (!isTransitioningPage) {
@@ -253,17 +395,7 @@
             }
         }
 
-        function updatePageBadge() {
-            const badge = e('sessionPageBadge');
-            if (!badge) return;
-            if (totalPages > 1) {
-                badge.innerText = `PÁG ${currentPageIndex + 1}/${totalPages}`;
-                badge.style.display = 'inline-flex';
-            } else {
-                badge.innerText = `TOTAL: ${currentSessionAttempts.length}`;
-                badge.style.display = 'inline-flex';
-            }
-        }
+        let lockedContainerHeight = 0;
 
         // Renderizar las filas de una página específica
         function renderPageRows(pageIdx) {
@@ -280,8 +412,8 @@
             const isDynamic = ['DYN', 'DYNB', 'DNF'].includes(sessionInfo.discipline);
             const nowMs = Date.now() - clockOffset;
 
-            const startIdx = pageIdx * itemsPerPage;
-            const pageAttempts = currentSessionAttempts.slice(startIdx, startIdx + itemsPerPage);
+            const slice = pageSlices[pageIdx] || { start: 0, end: currentSessionAttempts.length, count: currentSessionAttempts.length };
+            const pageAttempts = currentSessionAttempts.slice(slice.start, slice.end);
 
             if (pageAttempts.length === 0) {
                 container.innerHTML = '<div class="empty-heat-msg">No hay intentos registrados en esta sesión</div>';
@@ -296,13 +428,14 @@
                 const name = athlete.athlete_name || att.athlete_name || 'Atleta';
                 const country = (athlete.athlete_country || att.athlete_country || '').toUpperCase();
                 const flagClass = country ? `flag-icon flag-icon-${country.toLowerCase()}` : '';
+                const attDiscipline = (att.attemp_discipline || sessionInfo.discipline || '').toUpperCase();
 
                 const isJudged = att.attemp_status === 'JUDGED' || att.attemp_status === 'DQ' || Boolean(att.attemp_card) || att.attemp_status === 'DNS';
                 const isPerforming = att.attemp_status === 'PERFORMING';
                 const cardInfo = getAttemptCardAndNotes(att, isJudged, nowMs, appState.competition, clockOffset);
 
                 // Resultado AP
-                const apFormatted = formatMetric(att.attemp_ap, sessionInfo.discipline);
+                const apFormatted = formatMetric(att.attemp_ap, attDiscipline || sessionInfo.discipline);
 
                 // Resultado RP
                 let rpFormatted = '-';
@@ -310,10 +443,10 @@
                 if (isJudged) {
                     if (att.attemp_card === 'red' || att.attemp_status === 'DQ') rpFormatted = 'DQ';
                     else if (att.attemp_card === 'dns' || att.attemp_status === 'DNS') rpFormatted = 'DNS';
-                    else rpFormatted = formatMetric(att.official_result || att.attemp_rp, sessionInfo.discipline);
+                    else rpFormatted = formatMetric(att.official_result || att.attemp_rp, attDiscipline || sessionInfo.discipline);
                 } else if (isPerforming) {
                     rpLiveClass = 'is-live';
-                    rpFormatted = att.preliminary_result || '00:00';
+                    rpFormatted = formatMetric(att.preliminary_result || '0:00', attDiscipline || sessionInfo.discipline);
                 }
 
                 const rowPerformingClass = isPerforming ? 'is-performing' : '';
@@ -325,6 +458,7 @@
                     <div class="apnea-col-flag"><span class="${flagClass}" title="${country}"></span></div>
                     <div class="apnea-col-country">${htmlDecode(country)}</div>
                     <div class="apnea-col-athlete" title="${htmlDecode(name)}">${htmlDecode(name)}</div>
+                    <div class="apnea-col-discipline">${htmlDecode(attDiscipline)}</div>
                     <div class="apnea-col-ap">${htmlDecode(apFormatted)}</div>
                     <div class="apnea-col-rp ${rpLiveClass}" id="session-rp-${att.attemp_id}">${htmlDecode(rpFormatted)}</div>
                     <div class="apnea-col-card">
@@ -335,6 +469,19 @@
             });
 
             container.innerHTML = html;
+
+            // Mantener fija la altura del contenedor con el tamaño de la página inicial
+            if (pageIdx === 0) {
+                container.style.minHeight = '';
+                requestAnimationFrame(() => {
+                    if (container.offsetHeight > 0) {
+                        lockedContainerHeight = container.offsetHeight;
+                        container.style.minHeight = `${lockedContainerHeight}px`;
+                    }
+                });
+            } else if (lockedContainerHeight > 0) {
+                container.style.minHeight = `${lockedContainerHeight}px`;
+            }
         }
 
         // Ticker de valores en vivo para la página activa
@@ -357,8 +504,8 @@
             if (!sessionInfo) return;
 
             const nowMs = Date.now() - clockOffset;
-            const startIdx = currentPageIndex * itemsPerPage;
-            const pageAttempts = currentSessionAttempts.slice(startIdx, startIdx + itemsPerPage);
+            const slice = pageSlices[currentPageIndex] || { start: 0, end: currentSessionAttempts.length, count: currentSessionAttempts.length };
+            const pageAttempts = currentSessionAttempts.slice(slice.start, slice.end);
             const isDynamic = ['DYN', 'DYNB', 'DNF'].includes(sessionInfo.discipline);
             const athletesList = appState.athletes || [];
 
@@ -429,21 +576,29 @@
                         const elapsedSec = Math.max(0, (nowMs - startMs) / 1000);
                         const mins = Math.floor(elapsedSec / 60);
                         const secs = Math.floor(elapsedSec % 60);
-                        rpEl.innerHTML = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                        rpEl.innerHTML = `${mins}:${String(secs).padStart(2, '0')}`;
                     }
                 }
             });
         }
 
-        // Temporizador de Paginación Automática
+        // Temporizador de Paginación Automática con Auto-Exit al finalizar
         function startPaginationTimer() {
             stopPaginationTimer();
-            if (totalPages <= 1) return;
-
             paginationInterval = setInterval(() => {
                 if (!isOverlayVisible) return;
-                const nextIdx = (currentPageIndex + 1) % totalPages;
-                animatePageTransition(nextIdx);
+                if (currentPageIndex + 1 < totalPages) {
+                    const nextIdx = currentPageIndex + 1;
+                    animatePageTransition(nextIdx);
+                } else {
+                    // Fin del tiempo visible de la última página -> Llamar a stop() de spx_interface.js
+                    stopPaginationTimer();
+                    if (typeof stop === 'function') {
+                        stop();
+                    } else {
+                        runAnimationOUT();
+                    }
+                }
             }, pageDurationMs);
         }
 
@@ -454,32 +609,38 @@
             }
         }
 
-        // Transición de página con barrido horizontal en filas de celdas
+        // Transición de página: barrido vertical puro (salida de abajo hacia arriba, entrada de arriba hacia abajo)
         function animatePageTransition(nextIdx) {
             if (isTransitioningPage) return;
             isTransitioningPage = true;
 
-            // 1. Barrido de salida hacia la derecha
+            const currentRows = document.querySelectorAll('#lanesContainer .apnea-row');
+            if (currentRows.length === 0) {
+                currentPageIndex = nextIdx;
+                renderPageRows(currentPageIndex);
+                isTransitioningPage = false;
+                return;
+            }
+
+            // 1. Salida: borra en orden inverso (última línea -> anteúltima -> ... -> primera línea)
             anime({
-                targets: '.apnea-row',
-                translateX: [0, 40],
+                targets: currentRows,
                 opacity: [1, 0],
                 easing: 'easeInQuad',
-                duration: 180,
-                delay: anime.stagger(12),
+                duration: 140,
+                delay: anime.stagger(20, { from: 'last' }),
                 complete: function() {
                     currentPageIndex = nextIdx;
-                    updatePageBadge();
                     renderPageRows(currentPageIndex);
 
-                    // 2. Barrido de entrada desde la izquierda
+                    const newRows = document.querySelectorAll('#lanesContainer .apnea-row');
+                    // 2. Entrada: rellena en orden directo (línea 1 -> línea 2 -> ... -> última línea)
                     anime({
-                        targets: '.apnea-row',
-                        translateX: [-40, 0],
+                        targets: newRows,
                         opacity: [0, 1],
                         easing: 'easeOutCubic',
-                        duration: 220,
-                        delay: anime.stagger(16),
+                        duration: 180,
+                        delay: anime.stagger(20, { from: 'first' }),
                         complete: function() {
                             isTransitioningPage = false;
                         }
@@ -491,12 +652,13 @@
         // =========================================================
         // HANDLERS SPX (runTemplateUpdate, runAnimationIN, runAnimationOUT)
         // =========================================================
-        function runTemplateUpdate() {
+        async function runTemplateUpdate() {
             if (e('DynamicTheme') && e('f99') && e('f99').innerText.trim() !== '') {
                 e('DynamicTheme').href = e('f99').innerText.trim();
             }
 
             applyLayoutConfig();
+            await loadInitialData();
 
             if (!eventSource) {
                 setupLiveUpdates();
@@ -516,6 +678,7 @@
 
             // Renderizar primera página fresca
             currentPageIndex = 0;
+            lockedContainerHeight = 0;
             syncSessionData();
 
             // Preparar estado inicial para apertura de cortina desde arriba hacia abajo
@@ -525,13 +688,14 @@
             });
 
             anime.set('.apnea-row', {
-                opacity: 0,
-                translateX: -30
+                opacity: 0
             });
 
             var tl = anime.timeline({
                 easing: 'easeOutCubic',
                 complete: function() {
+                    anime.set('#gfx', { clipPath: 'none', opacity: 1 });
+                    anime.set('.apnea-row', { opacity: 1 });
                     if (window.spxSetState) window.spxSetState('PLAYING');
                     startPaginationTimer();
                 }
@@ -543,13 +707,12 @@
                 clipPath: ['inset(0% 0% 100% 0%)', 'inset(0% 0% 0% 0%)'],
                 duration: 480
             }, 0)
-            // Entrada con barrido de filas iniciales
+            // Entrada con barrido vertical de filas iniciales
             .add({
                 targets: '.apnea-row',
                 opacity: [0, 1],
-                translateX: [-30, 0],
                 duration: 260,
-                delay: anime.stagger(22)
+                delay: anime.stagger(20)
             }, 120);
         }
 
@@ -624,65 +787,76 @@
             "DataFields": [
                 {
                     "ftype": "instruction",
-                    "value": "Muestra la lista completa de intentos de la sesión activa con paginación automática, columna OT y transiciones de cortina."
+                    "value": "Displays the full session attempt list with auto-pagination, OT column, discipline, and curtain transitions."
                 },
                 {
                     "field": "_ITEMS_PER_PAGE",
                     "ftype": "dropdown",
-                    "title": "Intentos por Página",
+                    "title": "Attempts Per Page",
                     "value": "12",
                     "items": [
-                        { "text": "8 intentos por página", "value": "8" },
-                        { "text": "10 intentos por página", "value": "10" },
-                        { "text": "12 intentos por página (Recomendado)", "value": "12" },
-                        { "text": "14 intentos por página", "value": "14" },
-                        { "text": "16 intentos por página", "value": "16" }
+                        { "text": "8 attempts per page", "value": "8" },
+                        { "text": "10 attempts per page", "value": "10" },
+                        { "text": "12 attempts per page (Recommended)", "value": "12" },
+                        { "text": "14 attempts per page", "value": "14" },
+                        { "text": "16 attempts per page", "value": "16" }
                     ]
                 },
                 {
                     "field": "_PAGE_DURATION",
                     "ftype": "dropdown",
-                    "title": "Tiempo Visible por Página",
+                    "title": "Page Display Time",
                     "value": "7",
                     "items": [
-                        { "text": "5 Segundos", "value": "5" },
-                        { "text": "7 Segundos (Recomendado)", "value": "7" },
-                        { "text": "10 Segundos", "value": "10" },
-                        { "text": "15 Segundos", "value": "15" },
-                        { "text": "20 Segundos", "value": "20" }
+                        { "text": "5 Seconds", "value": "5" },
+                        { "text": "7 Seconds (Recommended)", "value": "7" },
+                        { "text": "10 Seconds", "value": "10" },
+                        { "text": "15 Seconds", "value": "15" },
+                        { "text": "20 Seconds", "value": "20" }
                     ]
                 },
                 {
                     "field": "_POSITION",
                     "ftype": "dropdown",
-                    "title": "Posición en Pantalla",
+                    "title": "Screen Position",
                     "value": "pos-bottom-left",
                     "items": [
-                        { "text": "Inferior Izquierda (Bottom-Left)", "value": "pos-bottom-left" },
-                        { "text": "Inferior Derecha (Bottom-Right)", "value": "pos-bottom-right" },
-                        { "text": "Superior Izquierda (Top-Left)", "value": "pos-top-left" },
-                        { "text": "Superior Derecha (Top-Right)", "value": "pos-top-right" },
-                        { "text": "Centro Izquierda (Center-Left)", "value": "pos-center-left" },
-                        { "text": "Centro Derecha (Center-Right)", "value": "pos-center-right" },
-                        { "text": "Inferior Centro (Bottom-Center)", "value": "pos-bottom-center" }
+                        { "text": "Center Screen (Center-Center)", "value": "pos-center-center" },
+                        { "text": "Bottom Left (Bottom-Left)", "value": "pos-bottom-left" },
+                        { "text": "Bottom Right (Bottom-Right)", "value": "pos-bottom-right" },
+                        { "text": "Top Left (Top-Left)", "value": "pos-top-left" },
+                        { "text": "Top Right (Top-Right)", "value": "pos-top-right" },
+                        { "text": "Center Left (Center-Left)", "value": "pos-center-left" },
+                        { "text": "Center Right (Center-Right)", "value": "pos-center-right" },
+                        { "text": "Bottom Center (Bottom-Center)", "value": "pos-bottom-center" }
                     ]
                 },
                 {
                     "field": "_SIZE",
                     "ftype": "dropdown",
-                    "title": "Tamaño del Recuadro",
+                    "title": "Panel Size",
                     "value": "size-wide",
                     "items": [
-                        { "text": "Compacto (40% pantalla)", "value": "size-compact" },
-                        { "text": "Estándar (50% pantalla)", "value": "size-standard" },
-                        { "text": "Ancho (62% pantalla)", "value": "size-wide" },
-                        { "text": "Completo (75% pantalla)", "value": "size-full" }
+                        { "text": "Compact (40% width)", "value": "size-compact" },
+                        { "text": "Standard (50% width)", "value": "size-standard" },
+                        { "text": "Wide (62% width)", "value": "size-wide" },
+                        { "text": "Full (75% width)", "value": "size-full" }
+                    ]
+                },
+                {
+                    "field": "_SHOW_NOTES",
+                    "ftype": "dropdown",
+                    "title": "Notes Column",
+                    "value": "true",
+                    "items": [
+                        { "text": "Show Notes", "value": "true" },
+                        { "text": "Hide Notes", "value": "false" }
                     ]
                 },
                 {
                     "field": "f99",
                     "ftype": "filelist",
-                    "title": "Tema Visual",
+                    "title": "Visual Theme",
                     "assetfolder": "./themes/",
                     "extension": "css",
                     "value": "./themes/Apnea_Broadcast.css"
@@ -690,7 +864,7 @@
                 {
                     "field": "_API_HOST",
                     "ftype": "textfield",
-                    "title": "API Host URL (opcional)",
+                    "title": "API Host URL (Optional)",
                     "value": ""
                 }
             ]
@@ -707,23 +881,20 @@
                     <span class="apnea-badge live-pulse" id="liveBadge">LIVE</span>
                     <span id="sessionTitle">SESIÓN ACTIVA</span>
                 </div>
-                <div class="apnea-header-sub">
-                    <span class="apnea-badge discipline" id="sessionDiscipline">STA</span>
-                    <span class="apnea-badge page-badge" id="sessionPageBadge">PÁG 1/1</span>
-                </div>
             </div>
 
-            <!-- Encabezado de Columnas con OT -->
+            <!-- Encabezado de Columnas con OT y DISCIPLINA antes de AP -->
             <div class="apnea-table-head">
                 <div class="head-ot">OT</div>
-                <div class="head-lane">LANE</div>
+                <div class="head-lane"></div>
                 <div class="head-flag"></div>
                 <div class="head-country"></div>
-                <div class="head-athlete">ATLETA</div>
+                <div class="head-athlete"></div>
+                <div class="head-discipline"></div>
                 <div class="head-ap">AP</div>
                 <div class="head-rp">RP</div>
                 <div class="head-card"></div>
-                <div class="head-notes">NOTAS</div>
+                <div class="head-notes"></div>
             </div>
 
             <!-- Lista de Filas Pagina Activa -->
@@ -734,7 +905,7 @@
             <!-- Pie de Panel / Footer -->
             <div class="apnea-footer">
                 <span class="footer-dot"></span>
-                <span class="footer-text">official start list & live results</span>
+                <span class="footer-text">official start list & preliminary results</span>
             </div>
         </div>
     </div>
@@ -745,6 +916,7 @@
         <div id="_PAGE_DURATION"></div>
         <div id="_POSITION"></div>
         <div id="_SIZE"></div>
+        <div id="_SHOW_NOTES"></div>
         <div id="_API_HOST"></div>
         <div id="f99"></div>
     </div>
