@@ -719,6 +719,14 @@
                 const isPerforming = status === 'PERFORMING';
                 const updates = Array.isArray(att.judge_updates) ? att.judge_updates : [];
 
+                // Para DQ/DNS no se necesita resultado numérico → mostrar inmediatamente.
+                // Para tarjeta blanca/amarilla, esperar a que official_result o attemp_rp
+                // estén disponibles antes de mostrar la tarjeta+RP+notes en simultáneo.
+                // Así se evita el flash de "tarjeta sin RP" cuando el servidor escribe en dos pasos.
+                const isDqOrDns = card === 'red' || status === 'DQ' || card === 'dns' || status === 'DNS';
+                const hasNumericResult = Boolean(att.official_result || att.attemp_rp);
+                const isReadyToDisplay = isJudged && (isDqOrDns || hasNumericResult);
+
                 // Señales de inicio que vienen del servidor
                 const serverSignalsStart = isPerforming || status === 'DONE' ||
                                            Boolean(att.performance_started_at || att.started_at || att.performance_finished_at) ||
@@ -740,26 +748,25 @@
                                                updates.some(u => ['PRESTOP', 'STOP', 'FINAL', 'SURFACE', 'DONE'].includes((u.event_type || u.type || '').toUpperCase())) ||
                                                localAttemptFinishMap.has(attemptKey);
 
-                const cardInfo = getAttemptCardAndNotes(att, isJudged, nowMs, appState.competition, clockOffset, appState.session_date);
+                const cardInfo = getAttemptCardAndNotes(att, isReadyToDisplay, nowMs, appState.competition, clockOffset, appState.session_date);
 
                 // Actualizar estado de fila
                 if (rowEl) {
-                    if (hasStarted && !isJudged) rowEl.classList.add('is-performing');
+                    if (hasStarted && !isReadyToDisplay) rowEl.classList.add('is-performing');
                     else rowEl.classList.remove('is-performing');
                 }
 
-                // Tarjeta
+                // Tarjeta y Notes: solo mostrar cuando el resultado también está listo
                 if (cardEl) {
-                    cardEl.className = `card-indicator ${cardInfo.cardClass}`;
+                    cardEl.className = `card-indicator ${isReadyToDisplay ? cardInfo.cardClass : 'card-none'}`;
                     cardEl.innerHTML = '';
                 }
 
-                // Columna Notes
                 if (notesEl) {
-                    notesEl.innerHTML = cardInfo.noteHtml;
+                    notesEl.innerHTML = isReadyToDisplay ? cardInfo.noteHtml : (hasStarted ? cardInfo.noteHtml : '');
                 }
 
-                if (isJudged) {
+                if (isReadyToDisplay) {
                     localAttemptStartMap.delete(attemptKey);
                     localAttemptFinishMap.delete(attemptKey);
                     liveTrackers.delete(attemptKey);
