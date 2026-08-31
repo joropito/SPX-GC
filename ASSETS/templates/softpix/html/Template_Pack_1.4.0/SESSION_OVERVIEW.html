@@ -552,13 +552,10 @@
                     const nextIdx = currentPageIndex + 1;
                     animatePageTransition(nextIdx);
                 } else {
-                    // Fin del tiempo visible de la última página -> Llamar a stop() de spx_interface.js
+                    // Fin del tiempo visible de la última página -> ejecutar animación de salida.
+                    // El panel de SPX queda en estado PLAY intencionalmente (comportamiento esperado).
                     stopPaginationTimer();
-                    if (typeof stop === 'function') {
-                        stop();
-                    } else {
-                        runAnimationOUT();
-                    }
+                    runAnimationOUT();
                 }
             }, pageDurationMs);
         }
