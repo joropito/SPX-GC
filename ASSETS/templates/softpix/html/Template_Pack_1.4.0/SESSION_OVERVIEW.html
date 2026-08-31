@@ -96,7 +96,7 @@
         let itemsPerPage = 12;
         let pageDurationMs = 7000;
         let isTransitioningPage = false;
-        let localAttemptStartMap = new Map();
+        // localAttemptStartMap es provisto por apnea-helpers.js (ventana global)
 
         // Configuración de visualización desde campos SPX
         function getItemsPerPageConfig() {
@@ -756,11 +756,13 @@
                     "title": "Attempts Per Page",
                     "value": "12",
                     "items": [
-                        { "text": "8 attempts per page", "value": "8" },
-                        { "text": "10 attempts per page", "value": "10" },
-                        { "text": "12 attempts per page (Recommended)", "value": "12" },
-                        { "text": "14 attempts per page", "value": "14" },
-                        { "text": "16 attempts per page", "value": "16" }
+                        { "text": "12 por página", "value": "12" },
+                        { "text": "14 por página", "value": "14" },
+                        { "text": "16 por página", "value": "16" },
+                        { "text": "18 por página", "value": "18" },
+                        { "text": "20 por página", "value": "20" },
+                        { "text": "22 por página", "value": "22" },
+                        { "text": "24 por página", "value": "24" }
                     ]
                 },
                 {
@@ -839,7 +841,6 @@
             <!-- Encabezado de la Sesión -->
             <div class="apnea-header">
                 <div class="apnea-header-title">
-                    <span class="apnea-badge live-pulse" id="liveBadge">LIVE</span>
                     <span id="sessionTitle">SESIÓN ACTIVA</span>
                 </div>
             </div>

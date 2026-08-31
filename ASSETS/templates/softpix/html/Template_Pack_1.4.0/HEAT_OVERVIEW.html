@@ -218,8 +218,7 @@
         // MOTOR DE ESTIMACIÓN DINÁMICA (API CLIENT DISTANCE ENGINE)
         // =========================================================
         const liveTrackers = new Map();
-        const localAttemptStartMap = new Map();
-        const localAttemptFinishMap = new Map();
+        // localAttemptStartMap y localAttemptFinishMap son provistos por apnea-helpers.js (ventana global)
 
         // Parser de parámetros de velocidad e intervalo de posta
         function getCompetitionParams(attempt, competition) {
@@ -839,6 +838,9 @@
         // =========================================================
 
         function runTemplateUpdate() {
+            // Resetear toggle de columnas al disparar un nuevo Play
+            _toggleColumnsExpanded = false;
+
             // Actualizar tema visual si está configurado en f99
             if (e('DynamicTheme') && e('f99') && e('f99').innerText.trim() !== '') {
                 e('DynamicTheme').href = e('f99').innerText.trim();
@@ -929,6 +931,62 @@
             }, 40);
         }
 
+        // =========================================================
+        // CONTINUE: Toggle de columnas AP y Notes
+        // Si alguna estaba oculta, las muestra ambas.
+        // Si estaban ambas visibles, restaura el estado SPX original.
+        // =========================================================
+        let _toggleColumnsExpanded = false;
+
+        function runAnimationNEXT() {
+            const gfx = e('gfx');
+            if (!gfx) return;
+
+            // Determinar estado original desde configuración SPX
+            const spxAp = e('_SHOW_AP') ? e('_SHOW_AP').innerText.trim().toLowerCase() : 'true';
+            const spxNotes = e('_SHOW_NOTES') ? e('_SHOW_NOTES').innerText.trim().toLowerCase() : 'true';
+            const originallyHideAp = (spxAp === 'false' || spxAp === '0' || spxAp === 'hide' || spxAp === 'no');
+            const originallyHideNotes = (spxNotes === 'false' || spxNotes === '0' || spxNotes === 'hide' || spxNotes === 'no');
+
+            // Solo tiene sentido el toggle si había algo oculto originalmente
+            if (!originallyHideAp && !originallyHideNotes) return;
+
+            _toggleColumnsExpanded = !_toggleColumnsExpanded;
+
+            // Animación rápida de fade out de columnas afectadas, cambio de visibilidad, fade in
+            const affectedCols = [];
+            if (originallyHideAp) affectedCols.push('.apnea-col-ap', '.head-ap');
+            if (originallyHideNotes) affectedCols.push('.apnea-col-notes', '.head-notes');
+
+            if (_toggleColumnsExpanded) {
+                // Mostrar columnas ocultas: quitar hide-ap y/o hide-notes
+                gfx.classList.remove('hide-ap', 'hide-notes');
+                anime({
+                    targets: affectedCols,
+                    opacity: [0, 1],
+                    duration: 280,
+                    easing: 'easeOutQuad'
+                });
+            } else {
+                // Restaurar estado original
+                anime({
+                    targets: affectedCols,
+                    opacity: [1, 0],
+                    duration: 200,
+                    easing: 'easeInQuad',
+                    complete: function() {
+                        if (originallyHideAp) gfx.classList.add('hide-ap');
+                        if (originallyHideNotes) gfx.classList.add('hide-notes');
+                        anime({
+                            targets: affectedCols,
+                            opacity: 1,
+                            duration: 1
+                        });
+                    }
+                });
+            }
+        }
+
         // Inicialización y precarga inmediata en background
         window.addEventListener('DOMContentLoaded', () => {
             try {
@@ -952,18 +1010,19 @@
         // DEFINICIÓN DE METADATOS SPX (SPXGCTemplateDefinition)
         // =========================================================
         window.SPXGCTemplateDefinition = {
-            "description": "Active Heat Overview (Live SSE)",
+            "description": "Active Heat Overview (Live SSE) — Continue: toggle AP/Notes",
             "playserver": "OVERLAY",
             "playchannel": "1",
             "playlayer": "3",
             "webplayout": "3",
             "out": "manual",
+            "steps": 99,
             "dataformat": "json",
             "uicolor": "3",
             "DataFields": [
                 {
                     "ftype": "instruction",
-                    "value": "Displays the active heat in real time with all lanes, AP, RP, and official judge cards connected via SSE."
+                    "value": "Play → muestra el heat. Continue → revela/oculta las columnas AP y Notes que estén ocultas en la configuración."
                 },
                 {
                     "field": "_POSITION",
@@ -1038,7 +1097,6 @@
             <!-- Encabezado del Heat -->
             <div class="apnea-header">
                 <div class="apnea-header-title">
-                    <span class="apnea-badge live-pulse" id="liveBadge">LIVE</span>
                     <span id="sessionName"></span>
                 </div>
                 <div class="apnea-header-sub">
