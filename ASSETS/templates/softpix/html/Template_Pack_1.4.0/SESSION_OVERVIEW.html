@@ -433,6 +433,8 @@
                 const isJudged = att.attemp_status === 'JUDGED' || att.attemp_status === 'DQ' || Boolean(att.attemp_card) || att.attemp_status === 'DNS';
                 const isPerforming = att.attemp_status === 'PERFORMING';
                 const cardInfo = getAttemptCardAndNotes(att, isJudged, nowMs, appState.competition, clockOffset);
+                // En SESSION_OVERVIEW solo mostrar notas si el intento ya fue juzgado
+                const noteHtml = isJudged ? cardInfo.noteHtml : '';
 
                 // Resultado AP
                 const apFormatted = formatMetric(att.attemp_ap, attDiscipline || sessionInfo.discipline);
@@ -445,7 +447,9 @@
                     else rpFormatted = formatMetric(att.official_result || att.attemp_rp, attDiscipline || sessionInfo.discipline);
                 }
 
-                const rowPerformingClass = isPerforming ? 'is-performing' : '';
+                // En SESSION_OVERVIEW los intentos en curso se muestran como no iniciados:
+                // sin highlight is-performing y con "-" en RP (no hay valores estimados).
+                const rowPerformingClass = '';
 
                 html += `
                 <div class="apnea-row ${rowPerformingClass}" id="session-row-${att.attemp_id}">
@@ -460,7 +464,7 @@
                     <div class="apnea-col-card">
                         <span class="card-indicator ${cardInfo.cardClass}" id="session-card-${att.attemp_id}"></span>
                     </div>
-                    <div class="apnea-col-notes" id="session-notes-${att.attemp_id}">${cardInfo.noteHtml}</div>
+                    <div class="apnea-col-notes" id="session-notes-${att.attemp_id}">${noteHtml}</div>
                 </div>`;
             });
 
@@ -517,8 +521,8 @@
                 const cardInfo = getAttemptCardAndNotes(att, isJudged, nowMs, appState.competition, clockOffset);
 
                 if (rowEl) {
-                    if (isPerforming) rowEl.classList.add('is-performing');
-                    else rowEl.classList.remove('is-performing');
+                    // SESSION_OVERVIEW no muestra highlight de fila en curso
+                    rowEl.classList.remove('is-performing');
                 }
 
                 if (cardEl) {
@@ -526,7 +530,8 @@
                 }
 
                 if (notesEl) {
-                    notesEl.innerHTML = cardInfo.noteHtml;
+                    // En SESSION_OVERVIEW solo mostrar notas si el intento ya fue juzgado
+                    notesEl.innerHTML = isJudged ? cardInfo.noteHtml : '';
                 }
 
                 if (isJudged) {

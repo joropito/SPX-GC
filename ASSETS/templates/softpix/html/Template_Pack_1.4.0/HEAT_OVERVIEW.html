@@ -719,9 +719,20 @@
                 const isPerforming = status === 'PERFORMING';
                 const updates = Array.isArray(att.judge_updates) ? att.judge_updates : [];
 
-                const hasStarted = isPerforming || status === 'DONE' || 
-                                   Boolean(att.performance_started_at || att.started_at || att.performance_finished_at) ||
-                                   updates.some(u => ['START', 'LAP', 'PRESTOP', 'STOP', 'FINAL', 'SURFACE', 'DONE'].includes((u.event_type || u.type || '').toUpperCase())) ||
+                // Señales de inicio que vienen del servidor
+                const serverSignalsStart = isPerforming || status === 'DONE' ||
+                                           Boolean(att.performance_started_at || att.started_at || att.performance_finished_at) ||
+                                           updates.some(u => ['START', 'LAP', 'PRESTOP', 'STOP', 'FINAL', 'SURFACE', 'DONE'].includes((u.event_type || u.type || '').toUpperCase()));
+
+                // Si el servidor no reporta ninguna señal de inicio (intento reseteado),
+                // limpiar los maps locales para que hasStarted vuelva a false
+                if (!serverSignalsStart && !isJudged) {
+                    localAttemptStartMap.delete(attemptKey);
+                    localAttemptFinishMap.delete(attemptKey);
+                    liveTrackers.delete(attemptKey);
+                }
+
+                const hasStarted = serverSignalsStart ||
                                    localAttemptStartMap.has(attemptKey) || localAttemptFinishMap.has(attemptKey);
 
                 const hasFinishedPerformance = status === 'DONE' ||

@@ -223,11 +223,11 @@ function getAttemptCardAndNotes(att, isJudged, nowMs, competition, clockOffset, 
     let cardClass = 'card-none';
     let noteHtml = '';
 
-    // 1. Durante la prueba (PERFORMING): se muestra "PRELIM." en la columna NOTES
+    // 1. Durante la prueba (PERFORMING): columna de notas vacía
     if (isPerforming && !isJudged) {
         localAttemptFinishMap.delete(key);
         cardClass = 'card-none';
-        noteHtml = '<span class="note-badge note-prelim">PRELIM.</span>';
+        noteHtml = '';
         return { cardClass, noteHtml };
     }
 
