@@ -33,6 +33,14 @@ window.spxSetState = function(newState) {
 function update(data) {
   // console.log('----- Update handler called.')
   var templateData = JSON.parse(data);
+  window.SPX_TEMPLATE_DATA = templateData;
+  if (templateData.epochID || templateData.epoch) {
+    window.SPX_EPOCH = templateData.epochID || templateData.epoch;
+  }
+  if (templateData.datafile) {
+    window.SPX_DATAFILE = templateData.datafile;
+  }
+
   for (var dataField in templateData) {
     var idField = document.getElementById(dataField);
     if (idField) {
@@ -46,6 +54,8 @@ function update(data) {
       switch (dataField) {
         case 'comment':
         case 'epochID':
+        case 'epoch':
+        case 'datafile':
           // console.warn('FYI: Optional #' + dataField + ' missing from SPX template...');
           break;
         default:
@@ -148,3 +158,5 @@ function validString(str) {
   }
   return true; // is a valid string
 }
+
+

@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <title>Apnea - Official Time & OT Countdown</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Scripts Principales -->
+    <script type="text/javascript" src="js/lib/anime.min.js"></script>
+    <script type="text/javascript" src="js/spx_interface.js"></script>
+    <script type="text/javascript" src="js/apnea-helpers.js"></script>
+    <script type="text/javascript" src="js/api-client.js"></script>
+
+    <!-- Estilos Base -->
+    <link rel="stylesheet" type="text/css" href="css/styles.css" />
+    <link rel="stylesheet" type="text/css" id="DynamicTheme" href="themes/Apnea_Broadcast.css" />
+
+    <style>
+        .SPXWindow {
+            position: absolute;
+            width: 100vw;
+            height: 100vh;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        #gfx {
+            position: absolute;
+            opacity: 0;
+            box-sizing: border-box;
+            z-index: 10;
+            will-change: transform, opacity;
+            transform-origin: center center;
+            display: inline-flex !important;
+            width: auto !important;
+            min-width: 0 !important;
+            max-width: max-content !important;
+        }
+
+        /* =========================================================
+           PASTILLA HORIZONTAL COMPACTA (AJUSTE EXACTO Y CENTRADO VERTICAL)
+           ========================================================= */
+        .ot-pill {
+            display: inline-flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: auto !important;
+            min-width: 0 !important;
+            max-width: max-content !important;
+            height: 2.3vw;
+            min-height: 36px;
+            max-height: 48px;
+            padding: 0 0.8vw;
+            border-radius: 50px;
+            gap: 0.55vw;
+            box-sizing: border-box;
+            box-shadow: 0 0.8vh 2.5vh rgba(0, 0, 0, 0.45);
+            font-family: 'BLAC', 'Oxanium', sans-serif;
+            letter-spacing: 0.04em;
+            user-select: none;
+            white-space: nowrap;
+            overflow: visible;
+        }
+
+        /* Ícono Circular de Reloj */
+        .ot-pill-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.3vw;
+            height: 1.3vw;
+            min-width: 18px;
+            min-height: 18px;
+            box-sizing: border-box;
+            flex-shrink: 0;
+            line-height: 1;
+            margin: 0;
+            padding: 0;
+        }
+
+        .ot-clock-svg {
+            width: 100%;
+            height: 100%;
+            stroke: currentColor;
+            stroke-width: 2.2;
+            fill: none;
+            display: block;
+        }
+
+        /* Título / Label (Corrección óptica de línea base para mayúsculas) */
+        .ot-pill-label {
+            display: inline-flex;
+            align-items: center;
+            font-family: 'BLAC', 'Oxanium', sans-serif;
+            font-size: 1.08vw;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            line-height: 1;
+            flex-shrink: 0;
+            margin: 0;
+            padding: 0;
+            transform: translateY(0.08vw); /* Alineación óptica exacta al centro del ícono */
+        }
+
+        /* Dígitos de Tiempo (Corrección óptica de línea base para números) */
+        .ot-pill-time {
+            display: inline-flex;
+            align-items: center;
+            font-family: 'BLAC', 'Oxanium', sans-serif;
+            font-size: 1.08vw;
+            font-weight: 900;
+            letter-spacing: 0.04em;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+            flex-shrink: 0;
+            margin: 0;
+            padding: 0;
+            transform: translateY(0.08vw); /* Alineación óptica exacta al centro del ícono */
+        }
+
+        .ot-sign {
+            display: inline-flex;
+            align-items: center;
+            line-height: 1;
+            margin-right: 0.06vw;
+        }
+
+        .ot-digits {
+            display: inline-flex;
+            align-items: center;
+            line-height: 1;
+        }
+
+        /* =========================================================
+           6 ESTILOS DE COLOR DISTINTOS (SOLIDOS Y MODERNOS)
+           ========================================================= */
+
+        /* 1. Naranja Transmisión (Referencia Oficial) */
+        .ot-pill.style-orange {
+            background: linear-gradient(135deg, #ff7700 0%, #ff5500 100%);
+            color: #ffffff;
+            border: 1.5px solid rgba(255, 255, 255, 0.35);
+            box-shadow: 0 0.8vh 2.5vh rgba(255, 85, 0, 0.35), 0 0 1vw rgba(255, 119, 0, 0.2);
+        }
+        .ot-pill.style-orange .ot-pill-icon {
+            color: #ffffff;
+            border-color: #ffffff;
+        }
+        .ot-pill.style-orange .ot-pill-label,
+        .ot-pill.style-orange .ot-pill-time {
+            color: #ffffff;
+        }
+
+        /* 2. Cyan Eléctrico (Apnea Aqua) */
+        .ot-pill.style-cyan {
+            background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%);
+            color: #ffffff;
+            border: 1.5px solid rgba(255, 255, 255, 0.35);
+            box-shadow: 0 0.8vh 2.5vh rgba(0, 180, 219, 0.35), 0 0 1vw rgba(0, 180, 219, 0.2);
+        }
+        .ot-pill.style-cyan .ot-pill-icon {
+            color: #ffffff;
+            border-color: #ffffff;
+        }
+        .ot-pill.style-cyan .ot-pill-label,
+        .ot-pill.style-cyan .ot-pill-time {
+            color: #ffffff;
+        }
+
+        /* 3. Verde Esmeralda (Competition Green) */
+        .ot-pill.style-emerald {
+            background: linear-gradient(135deg, #00b074 0%, #008b58 100%);
+            color: #ffffff;
+            border: 1.5px solid rgba(255, 255, 255, 0.35);
+            box-shadow: 0 0.8vh 2.5vh rgba(0, 176, 116, 0.35), 0 0 1vw rgba(0, 176, 116, 0.2);
+        }
+        .ot-pill.style-emerald .ot-pill-icon {
+            color: #ffffff;
+            border-color: #ffffff;
+        }
+        .ot-pill.style-emerald .ot-pill-label,
+        .ot-pill.style-emerald .ot-pill-time {
+            color: #ffffff;
+        }
+
+        /* 4. Azul Marino Real (Royal Blue) */
+        .ot-pill.style-blue {
+            background: linear-gradient(135deg, #1877f2 0%, #0d52b3 100%);
+            color: #ffffff;
+            border: 1.5px solid rgba(255, 255, 255, 0.35);
+            box-shadow: 0 0.8vh 2.5vh rgba(24, 119, 242, 0.35), 0 0 1vw rgba(24, 119, 242, 0.2);
+        }
+        .ot-pill.style-blue .ot-pill-icon {
+            color: #ffffff;
+            border-color: #ffffff;
+        }
+        .ot-pill.style-blue .ot-pill-label,
+        .ot-pill.style-blue .ot-pill-time {
+            color: #ffffff;
+        }
+
+        /* 5. Rojo Carmesí (Vivid Crimson) */
+        .ot-pill.style-crimson {
+            background: linear-gradient(135deg, #ff2d55 0%, #d9002c 100%);
+            color: #ffffff;
+            border: 1.5px solid rgba(255, 255, 255, 0.35);
+            box-shadow: 0 0.8vh 2.5vh rgba(255, 45, 85, 0.35), 0 0 1vw rgba(255, 45, 85, 0.2);
+        }
+        .ot-pill.style-crimson .ot-pill-icon {
+            color: #ffffff;
+            border-color: #ffffff;
+        }
+        .ot-pill.style-crimson .ot-pill-label,
+        .ot-pill.style-crimson .ot-pill-time {
+            color: #ffffff;
+        }
+
+        /* 6. Obsidiana Oscuro con Neón (Dark Neon) */
+        .ot-pill.style-dark {
+            background: linear-gradient(135deg, #0c1628 0%, #060d19 100%);
+            color: #ffffff;
+            border: 1.5px solid rgba(0, 229, 255, 0.55);
+            box-shadow: 0 0.8vh 2.5vh rgba(0, 4, 15, 0.7), 0 0 1vw rgba(0, 229, 255, 0.2);
+        }
+        .ot-pill.style-dark .ot-pill-icon {
+            color: #00e5ff;
+            border-color: #00e5ff;
+        }
+        .ot-pill.style-dark .ot-pill-label {
+            color: #00e5ff;
+        }
+        .ot-pill.style-dark .ot-pill-time {
+            color: #ffffff;
+        }
+    </style>
+
+    <script>
+        // Helper local seguro para elementos DOM
+        function e(elementID) {
+            if (!elementID) return null;
+            return document.getElementById(elementID);
+        }
+
+        // Estado global del overlay
+        let appState = {
+            sessions: [],
+            heats: [],
+            attempts: [],
+            competition: {},
+            active_broadcast: {},
+            server_now: Date.now()
+        };
+
+        let clockOffset = 0;
+        let tickerInterval = null;
+        let eventSource = null;
+        let isOverlayVisible = false;
+        let isAutoDismissTriggered = false;
+
+        // Configuración de Duración Máxima tras OT (Segundos)
+        function getMaxDurationSec() {
+            const spxMax = e('_MAX_DURATION') ? e('_MAX_DURATION').innerText.trim() : '';
+            const spxYellow = e('_YELLOW_LIMIT') ? e('_YELLOW_LIMIT').innerText.trim() : '';
+            let urlVal = '';
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                urlVal = urlParams.get('max') || urlParams.get('duration') || urlParams.get('yellow') || '';
+            } catch (_) {}
+            const val = spxMax || spxYellow || urlVal;
+            const num = parseInt(val, 10);
+            return (!isNaN(num) && num > 0) ? num : 30; // Default: 30 segundos
+        }
+
+        function getYellowCardLimitSec() {
+            return getMaxDurationSec();
+        }
+
+        function getWhiteCardLimitSec() {
+            const spxVal = e('_WHITE_LIMIT') ? e('_WHITE_LIMIT').innerText.trim() : '';
+            const num = parseInt(spxVal, 10);
+            return (!isNaN(num) && num >= 0) ? num : 10;
+        }
+
+        function isDirectRedConfig() {
+            return false;
+        }
+
+        // Selector de los 6 estilos de color
+        function getSelectedStyleClass() {
+            const spxStyle = e('_STYLE') ? e('_STYLE').innerText.trim().toLowerCase() : '';
+            let urlStyle = '';
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                urlStyle = (urlParams.get('style') || '').toLowerCase();
+            } catch (_) {}
+            const target = spxStyle || urlStyle || 'style-orange';
+
+            if (target.includes('cyan') || target.includes('aqua')) return 'style-cyan';
+            if (target.includes('emerald') || target.includes('green') || target.includes('verde')) return 'style-emerald';
+            if (target.includes('blue') || target.includes('azul')) return 'style-blue';
+            if (target.includes('crimson') || target.includes('red') || target.includes('rojo')) return 'style-crimson';
+            if (target.includes('dark') || target.includes('obsidian') || target.includes('neon')) return 'style-dark';
+            return 'style-orange'; // 1. Orange por defecto
+        }
+
+        function getPosX() {
+            const spxVal = e('_POS_X') ? e('_POS_X').innerText.trim() : '';
+            let urlVal = '';
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                urlVal = urlParams.get('pos_x') || urlParams.get('x') || '';
+            } catch (_) {}
+            const val = spxVal || urlVal;
+            if (val) {
+                const num = parseFloat(val);
+                if (!isNaN(num)) return Math.max(0, Math.min(100, num));
+            }
+            const posLegacy = (e('_POSITION') ? e('_POSITION').innerText.trim().toLowerCase() : '');
+            if (posLegacy.includes('left')) return 5;
+            if (posLegacy.includes('center')) return 50;
+            return 88; // Default: 88% (Arriba derecha)
+        }
+
+        function getPosY() {
+            const spxVal = e('_POS_Y') ? e('_POS_Y').innerText.trim() : '';
+            let urlVal = '';
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                urlVal = urlParams.get('pos_y') || urlParams.get('y') || '';
+            } catch (_) {}
+            const val = spxVal || urlVal;
+            if (val) {
+                const num = parseFloat(val);
+                if (!isNaN(num)) return Math.max(0, Math.min(100, num));
+            }
+            const posLegacy = (e('_POSITION') ? e('_POSITION').innerText.trim().toLowerCase() : '');
+            if (posLegacy.includes('bottom')) return 92;
+            if (posLegacy.includes('center')) return 50;
+            return 5; // Default: 5% (Arriba)
+        }
+
+        // Aplicar Posición y Estilo Visual
+        function applyLayoutConfig() {
+            const gfx = e('gfx');
+            if (!gfx) return;
+
+            const posX = getPosX();
+            const posY = getPosY();
+
+            gfx.style.left = posX + '%';
+            gfx.style.top = posY + '%';
+            gfx.style.transform = `translate(-${posX}%, -${posY}%)`;
+
+            // Título personalizado
+            const spxTitle = e('_TITLE') ? e('_TITLE').innerText.trim() : '';
+            if (e('otTitle')) {
+                e('otTitle').innerText = spxTitle ? spxTitle.toUpperCase() : 'OFFICIAL TOP';
+            }
+
+            gfx.className = `ot-pill ${getSelectedStyleClass()}`.trim();
+        }
+
+        // Formatear segundos a MM:SS
+        function formatMinSec(totalSec) {
+            const s = Math.max(0, Math.floor(totalSec));
+            const mins = Math.floor(s / 60);
+            const secs = s % 60;
+            return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
+        // Obtener el contexto de sesión y OT activo (evaluando solo la hora del día)
+        function getActiveSessionAndOT() {
+            const activeBroadcast = appState.active_broadcast || {};
+            let activeSessionId = activeBroadcast.session_id || "";
+            let activeOt = activeBroadcast.session_ot || activeBroadcast.heat_ot || "";
+
+            const sessionsList = appState.sessions || appState.heats || [];
+            let activeSession = sessionsList.find(s => (s.session_id === activeSessionId || s.heat_id === activeSessionId));
+
+            if (!activeSession && sessionsList.length > 0) {
+                activeSession = sessionsList.find(s => s.status !== 'closed') || sessionsList[0];
+                activeSessionId = activeSession.session_id || activeSession.heat_id;
+            }
+
+            const sessionAttempts = (appState.attempts || []).filter(att => 
+                att.session_id === activeSessionId || att.heat_id === activeSessionId
+            );
+
+            if (!activeOt) {
+                const performingAtt = sessionAttempts.find(att => att.attemp_status === 'PERFORMING');
+                if (performingAtt && performingAtt.attemp_ot) {
+                    activeOt = performingAtt.attemp_ot;
+                } else if (sessionAttempts.length > 0) {
+                    activeOt = sessionAttempts[0].attemp_ot || "";
+                }
+            }
+
+            let otMs = 0;
+            if (activeOt) {
+                const nowMs = Date.now() - clockOffset;
+                const nowDate = new Date(nowMs);
+                const timeMatch = String(activeOt).trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+                if (timeMatch) {
+                    const hours = parseInt(timeMatch[1], 10);
+                    const minutes = parseInt(timeMatch[2], 10);
+                    const seconds = parseInt(timeMatch[3] || '0', 10);
+                    const targetDate = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate(), hours, minutes, seconds, 0);
+                    let targetMs = targetDate.getTime();
+
+                    const diff = targetMs - nowMs;
+                    if (diff > 12 * 3600 * 1000) {
+                        targetMs -= 24 * 3600 * 1000;
+                    } else if (diff < -12 * 3600 * 1000) {
+                        targetMs += 24 * 3600 * 1000;
+                    }
+                    otMs = targetMs;
+                } else {
+                    otMs = parseTimestampMs(activeOt, null);
+                }
+            }
+
+            return {
+                session: activeSession,
+                sessionId: activeSessionId,
+                otString: activeOt || "--:--",
+                otMs: otMs
+            };
+        }
+
+        // Validar si el tiempo ya está excedido / finalizado al momento de cargar
+        function isTimeExpired() {
+            const sessionData = getActiveSessionAndOT();
+            if (!sessionData || !sessionData.otMs) return true;
+
+            const nowMs = Date.now() - clockOffset;
+            const otMs = sessionData.otMs;
+            const maxAllowedSec = getMaxDurationSec();
+
+            return (nowMs >= otMs + (maxAllowedSec * 1000));
+        }
+
+        // Bucle de actualización del contador oficial en tiempo real
+        function tickOfficialTimer() {
+            const nowMs = Date.now() - clockOffset;
+            const sessionData = getActiveSessionAndOT();
+            const signEl = e('otTimerSign');
+            const digitsEl = e('otTimerDigits');
+
+            if (!sessionData.otMs) {
+                if (signEl) signEl.innerText = '';
+                if (digitsEl) digitsEl.innerText = '00:00';
+                return;
+            }
+
+            const otMs = sessionData.otMs;
+            const maxAllowedSec = getMaxDurationSec();
+
+            if (nowMs < otMs) {
+                // Pre-OT Countdown (-03:00 -> 00:00)
+                const remainingMs = otMs - nowMs;
+                const remainingSec = Math.ceil(remainingMs / 1000);
+
+                if (signEl) signEl.innerText = '';
+                if (digitsEl) digitsEl.innerText = formatMinSec(remainingSec);
+
+            } else {
+                // Post-OT (+00:01 -> +00:30)
+                const elapsedMs = nowMs - otMs;
+                const elapsedSec = Math.floor(elapsedMs / 1000);
+
+                if (elapsedSec <= maxAllowedSec) {
+                    if (signEl) signEl.innerText = '+';
+                    if (digitsEl) digitsEl.innerText = formatMinSec(elapsedSec);
+                } else {
+                    // Límite alcanzado: se mantiene uniforme, se congela y sale en fadeout
+                    if (signEl) signEl.innerText = '+';
+                    if (digitsEl) digitsEl.innerText = formatMinSec(maxAllowedSec);
+                    triggerAutoDismiss();
+                }
+            }
+        }
+
+        // Auto-dismissal con fadeout cuando se vence la duración máxima
+        function triggerAutoDismiss() {
+            if (!isAutoDismissTriggered && isOverlayVisible) {
+                isAutoDismissTriggered = true;
+                setTimeout(() => {
+                    runAnimationOUT();
+                }, 1000);
+            }
+        }
+
+        // Iniciar Ticker en tiempo real
+        function startTimerTicker() {
+            if (tickerInterval) clearInterval(tickerInterval);
+            isAutoDismissTriggered = false;
+            tickerInterval = setInterval(() => {
+                if (isOverlayVisible) {
+                    tickOfficialTimer();
+                }
+            }, 100);
+        }
+
+        function stopTimerTicker() {
+            if (tickerInterval) {
+                clearInterval(tickerInterval);
+                tickerInterval = null;
+            }
+        }
+
+        // Cargar estado inicial desde API
+        async function loadInitialData() {
+            try {
+                const apiBase = getApiBaseUrl();
+                const res = await fetch(`${apiBase}/api/all`, { cache: 'no-store' });
+                if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+                const data = await res.json();
+
+                clockOffset = Date.now() - (data.server_now || Date.now());
+                appState = data;
+                tickOfficialTimer();
+            } catch (err) {
+                console.error("Error cargando datos oficiales:", err);
+            }
+        }
+
+        // Conectar SSE para streaming de eventos en vivo
+        function setupLiveUpdates() {
+            if (eventSource) {
+                try { eventSource.close(); } catch (_) {}
+                eventSource = null;
+            }
+            try {
+                const apiBase = getApiBaseUrl();
+                eventSource = new EventSource(`${apiBase}/api/events`);
+
+                eventSource.onopen = () => {
+                    loadInitialData();
+                };
+
+                eventSource.onmessage = async (e) => {
+                    if (e.data === 'update' || !e.data || e.data === 'connected') {
+                        try {
+                            const res = await fetch(`${apiBase}/api/all`, { cache: 'no-store' });
+                            if (res.ok) {
+                                const data = await res.json();
+                                clockOffset = Date.now() - (data.server_now || Date.now());
+                                appState = data;
+                                tickOfficialTimer();
+                            }
+                        } catch (err) {
+                            console.error("Error procesando evento SSE:", err);
+                        }
+                    }
+                };
+
+                eventSource.onerror = () => {
+                    if (eventSource) eventSource.close();
+                    eventSource = null;
+                    setTimeout(setupLiveUpdates, 3000);
+                };
+            } catch (err) {
+                console.error("Error iniciando SSE:", err);
+            }
+        }
+
+        // =========================================================
+        // HANDLERS SPX (runTemplateUpdate, runAnimationIN, runAnimationOUT)
+        // =========================================================
+        async function runTemplateUpdate() {
+            applyLayoutConfig();
+            await loadInitialData();
+
+            if (!eventSource) {
+                setupLiveUpdates();
+            }
+
+            if (isTimeExpired()) {
+                isOverlayVisible = false;
+                anime.set('#gfx', { opacity: 0 });
+                if (window.spxSetState) window.spxSetState('STOPPED');
+                return;
+            }
+
+            startTimerTicker();
+            runAnimationIN();
+        }
+
+        // Animación de entrada: Fade-in suave
+        function runAnimationIN() {
+            if (isTimeExpired()) {
+                isOverlayVisible = false;
+                anime.remove('#gfx');
+                anime.set('#gfx', { opacity: 0 });
+                if (window.spxSetState) window.spxSetState('STOPPED');
+                return;
+            }
+
+            isOverlayVisible = true;
+            isAutoDismissTriggered = false;
+            if (window.spxSetState) window.spxSetState('PLAYING');
+
+            anime.remove('#gfx');
+            tickOfficialTimer();
+
+            anime.set('#gfx', {
+                opacity: 0,
+                scale: 0.94
+            });
+
+            anime({
+                targets: '#gfx',
+                opacity: [0, 1],
+                scale: [0.94, 1],
+                duration: 350,
+                easing: 'easeOutCubic',
+                complete: function() {
+                    anime.set('#gfx', { opacity: 1, scale: 1 });
+                    if (window.spxSetState) window.spxSetState('PLAYING');
+                }
+            });
+        }
+
+        // Animación de salida: Fade-out suave
+        function runAnimationOUT() {
+            stopTimerTicker();
+
+            if (!isOverlayVisible) {
+                if (window.spxSetState) window.spxSetState('STOPPED');
+                return;
+            }
+
+            isOverlayVisible = false;
+            if (window.spxSetState) window.spxSetState('STOPPING');
+
+            anime.remove('#gfx');
+
+            anime({
+                targets: '#gfx',
+                opacity: [1, 0],
+                scale: [1, 0.94],
+                duration: 300,
+                easing: 'easeInQuad',
+                complete: function() {
+                    anime.set('#gfx', { opacity: 0 });
+                    if (window.spxSetState) window.spxSetState('STOPPED');
+                }
+            });
+        }
+
+        // Definición de formulario simplificado para SPX Graphics Controller con % X/Y granular
+        window.SPXGCTemplateDefinition = {
+            "description": "Apnea Official Time & OT Countdown",
+            "playserver": "OVERLAY",
+            "playchannel": "1",
+            "playlayer": "10",
+            "webplayout": "10",
+            "out": "manual",
+            "DataFields": [
+                {
+                    "ftype": "instruction",
+                    "value": "Compact horizontal ribbon countdown relative to active heat Official Top (OT)."
+                },
+                {
+                    "field": "_MAX_DURATION",
+                    "ftype": "textfield",
+                    "title": "Max Duration after OT in Seconds (Auto Fade-Out)",
+                    "value": "30"
+                },
+                {
+                    "field": "_STYLE",
+                    "ftype": "dropdown",
+                    "title": "Color Style",
+                    "value": "style-orange",
+                    "items": [
+                        { "text": "1. Vibrant Orange", "value": "style-orange" },
+                        { "text": "2. Electric Cyan", "value": "style-cyan" },
+                        { "text": "3. Emerald Green", "value": "style-emerald" },
+                        { "text": "4. Royal Blue", "value": "style-blue" },
+                        { "text": "5. Crimson Red", "value": "style-crimson" },
+                        { "text": "6. Dark Obsidian (Neon)", "value": "style-dark" }
+                    ]
+                },
+                {
+                    "field": "_POS_X",
+                    "ftype": "dropdown",
+                    "title": "Horizontal Position (% Ancho / X)",
+                    "value": "88",
+                    "items": [
+                        { "text": "3% (Borde izquierdo)", "value": "3" },
+                        { "text": "5%", "value": "5" },
+                        { "text": "8%", "value": "8" },
+                        { "text": "10%", "value": "10" },
+                        { "text": "15%", "value": "15" },
+                        { "text": "20%", "value": "20" },
+                        { "text": "25%", "value": "25" },
+                        { "text": "30%", "value": "30" },
+                        { "text": "40%", "value": "40" },
+                        { "text": "50% (Centro horizontal)", "value": "50" },
+                        { "text": "60%", "value": "60" },
+                        { "text": "70%", "value": "70" },
+                        { "text": "75%", "value": "75" },
+                        { "text": "80%", "value": "80" },
+                        { "text": "85%", "value": "85" },
+                        { "text": "88% (Derecha estándar)", "value": "88" },
+                        { "text": "90%", "value": "90" },
+                        { "text": "92%", "value": "92" },
+                        { "text": "95%", "value": "95" },
+                        { "text": "97% (Borde derecho)", "value": "97" }
+                    ]
+                },
+                {
+                    "field": "_POS_Y",
+                    "ftype": "dropdown",
+                    "title": "Vertical Position (% Altura / Y)",
+                    "value": "5",
+                    "items": [
+                        { "text": "2% (Borde superior)", "value": "2" },
+                        { "text": "3%", "value": "3" },
+                        { "text": "4%", "value": "4" },
+                        { "text": "5% (Superior estándar)", "value": "5" },
+                        { "text": "6%", "value": "6" },
+                        { "text": "8%", "value": "8" },
+                        { "text": "10%", "value": "10" },
+                        { "text": "12%", "value": "12" },
+                        { "text": "15%", "value": "15" },
+                        { "text": "20%", "value": "20" },
+                        { "text": "25%", "value": "25" },
+                        { "text": "30%", "value": "30" },
+                        { "text": "40%", "value": "40" },
+                        { "text": "50% (Centro vertical)", "value": "50" },
+                        { "text": "60%", "value": "60" },
+                        { "text": "70%", "value": "70" },
+                        { "text": "80%", "value": "80" },
+                        { "text": "85%", "value": "85" },
+                        { "text": "90%", "value": "90" },
+                        { "text": "92% (Inferior estándar)", "value": "92" },
+                        { "text": "95%", "value": "95" }
+                    ]
+                },
+                {
+                    "field": "_TITLE",
+                    "ftype": "textfield",
+                    "title": "Header Title",
+                    "value": "OFFICIAL TOP"
+                }
+            ]
+        };
+    </script>
+</head>
+<body>
+
+    <div class="SPXWindow">
+        <!-- Pastilla Horizontal Compacta (Ajuste automático al contenido y % X/Y granular) -->
+        <div id="gfx" class="ot-pill style-orange">
+            <div class="ot-pill-icon">
+                <svg class="ot-clock-svg" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="9"></circle>
+                    <polyline points="12 7 12 12 15 14"></polyline>
+                </svg>
+            </div>
+            <div class="ot-pill-label" id="otTitle">OFFICIAL TOP</div>
+            <div class="ot-pill-time" id="otTimerDisplay">
+                <span class="ot-sign" id="otTimerSign">-</span><span class="ot-digits" id="otTimerDigits">03:00</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenedor oculto para datos de SPX Controller (soporte para campos actuales y legacy) -->
+    <div id="hiddenSpxData">
+        <div id="_MAX_DURATION"></div>
+        <div id="_STYLE"></div>
+        <div id="_POS_X"></div>
+        <div id="_POS_Y"></div>
+        <div id="_TITLE"></div>
+        <div id="_POSITION"></div>
+        <div id="_SIZE"></div>
+        <div id="_JUDGE_COUNTDOWN"></div>
+        <div id="_WHITE_LIMIT"></div>
+        <div id="_YELLOW_LIMIT"></div>
+        <div id="_DIRECT_RED"></div>
+        <div id="_SHOW_SERVER_CLOCK"></div>
+        <div id="f99"></div>
+        <div id="_API_HOST"></div>
+    </div>
+
+</body>
+</html>

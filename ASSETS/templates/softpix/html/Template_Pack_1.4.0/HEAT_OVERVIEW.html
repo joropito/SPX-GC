@@ -78,6 +78,62 @@
             margin: 0 !important;
             flex: 0 0 0 !important;
         }
+
+        /* Alineación vertical perfecta y simétrica en todas las filas */
+        .apnea-row,
+        .apnea-table-head {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+        }
+
+        .apnea-col-ot,
+        .apnea-col-lane,
+        .apnea-col-country,
+        .apnea-col-athlete,
+        .apnea-col-ap,
+        .apnea-col-rp,
+        .apnea-col-discipline,
+        .apnea-col-notes,
+        .head-ot,
+        .head-lane,
+        .head-country,
+        .head-athlete,
+        .head-ap,
+        .head-rp,
+        .head-discipline,
+        .head-notes {
+            display: inline-flex !important;
+            align-items: center !important;
+            line-height: 1 !important;
+            transform: translateY(0.06vw) !important;
+        }
+
+        .apnea-col-flag,
+        .head-flag,
+        .apnea-col-card,
+        .head-card {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            line-height: 1 !important;
+        }
+
+        .flag-icon {
+            display: block !important;
+            height: 0.85em !important;
+            width: 1.25em !important;
+            background-size: cover !important;
+            background-position: center center !important;
+            border-radius: 2px !important;
+            line-height: 1 !important;
+            vertical-align: middle !important;
+            margin: 0 !important;
+        }
+
+        .flag-icon:before {
+            content: "" !important;
+        }
     </style>
 
     <script>
@@ -212,269 +268,6 @@
                 }
                 return strVal;
             }
-        }
-
-        // =========================================================
-        // MOTOR DE ESTIMACIÓN DINÁMICA (API CLIENT DISTANCE ENGINE)
-        // =========================================================
-        const liveTrackers = new Map();
-        // localAttemptStartMap y localAttemptFinishMap son provistos por apnea-helpers.js (ventana global)
-
-        // Parser de parámetros de velocidad e intervalo de posta
-        function getCompetitionParams(attempt, competition) {
-            const disc = (attempt ? (attempt.attemp_discipline || '') : '').trim().toUpperCase();
-            const compSpeeds = (competition && competition.initial_speeds) ? competition.initial_speeds : {};
-            const gender = (attempt && (attempt.athlete_gender || attempt.gender) ? (attempt.athlete_gender || attempt.gender) : 'M').trim().toUpperCase();
-
-            let initialV = 1.0;
-            if (compSpeeds[disc] !== undefined) {
-                if (typeof compSpeeds[disc] === 'object' && compSpeeds[disc] !== null) {
-                    const speedByGender = compSpeeds[disc][gender] || compSpeeds[disc].M || compSpeeds[disc].default;
-                    if (speedByGender !== undefined && !isNaN(parseFloat(speedByGender))) {
-                        initialV = parseFloat(speedByGender);
-                    }
-                } else if (!isNaN(parseFloat(compSpeeds[disc]))) {
-                    initialV = parseFloat(compSpeeds[disc]);
-                }
-            } else if (compSpeeds.default !== undefined && !isNaN(parseFloat(compSpeeds.default))) {
-                initialV = parseFloat(compSpeeds.default);
-            } else {
-                if (disc === 'DNF') initialV = 0.95;
-                else if (disc === 'DYNB') initialV = 1.05;
-                else if (disc === 'DYN') initialV = 1.15;
-            }
-
-            const intervaloPosta = (competition && competition.distance_step && !isNaN(parseFloat(competition.distance_step)))
-                ? parseFloat(competition.distance_step)
-                : 5;
-
-            return { initialV, intervaloPosta };
-        }
-
-        // Reconstrucción matemática pura en un instante específico
-        function calculatePureDistance(attempt, competition, targetTimeMs) {
-            if (!attempt) return 0;
-            const { initialV, intervaloPosta } = getCompetitionParams(attempt, competition);
-            let updates = (attempt.judge_updates || []).filter(u => new Date(u.timestamp).getTime() <= targetTimeMs);
-            let startEvent = updates.find(u => u.event_type === 'START');
-
-            if (!startEvent && (attempt.started_at || attempt.start_time || attempt.start_timestamp || attempt.timestamp)) {
-                startEvent = {
-                    event_type: 'START',
-                    timestamp: attempt.started_at || attempt.start_time || attempt.start_timestamp || attempt.timestamp
-                };
-                updates.unshift(startEvent);
-            }
-
-            if (!startEvent) return 0;
-
-            let D_base = 0;
-            let T_base = new Date(startEvent.timestamp).getTime();
-            let V_actual = initialV;
-
-            const splits = updates
-                .filter(u => u.event_type === 'LAP')
-                .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
-            for (const split of splits) {
-                const T_real = new Date(split.timestamp).getTime();
-                const deltaT_split = Math.max(0.1, (T_real - T_base) / 1000);
-
-                let D_estimada_al_click = D_base + (V_actual * deltaT_split);
-                let postaMasCercana = Math.round(D_estimada_al_click / intervaloPosta) * intervaloPosta;
-
-                if (postaMasCercana <= D_base) {
-                    postaMasCercana = D_base + intervaloPosta;
-                }
-
-                const deltaD_split = postaMasCercana - D_base;
-                const velocidadCalculada = deltaD_split / deltaT_split;
-
-                const VELOCIDAD_CAP = 2.0;
-                const VELOCIDAD_MISCLICK = 4.0;
-
-                if (velocidadCalculada < VELOCIDAD_MISCLICK) {
-                    if (deltaT_split > 0 && deltaD_split > 0) {
-                        V_actual = Math.max(0.2, Math.min(velocidadCalculada, VELOCIDAD_CAP));
-                    }
-                    D_base = postaMasCercana;
-                    T_base = T_real;
-                }
-            }
-
-            const rawDeltaT = Math.max(0, (targetTimeMs - T_base) / 1000);
-            let D_final = D_base + (V_actual * rawDeltaT);
-
-            const maximoPermitido = D_base + (intervaloPosta * 3) - 0.01;
-            if (D_final > maximoPermitido) {
-                D_final = maximoPermitido;
-            }
-
-            return Math.floor(D_final);
-        }
-
-        // Cálculo continuo y suavizado en tiempo real
-        function calculateLiveDynamicDistance(attempt, competition, nowMs = Date.now(), useSmoothing = true) {
-            if (!attempt || !attempt.attemp_id) return 0;
-            const attemptId = attempt.attemp_id;
-            let updates = Array.isArray(attempt.judge_updates) ? [...attempt.judge_updates] : [];
-            let startEvent = updates.find(u => u.event_type === 'START');
-
-            if (!startEvent && (attempt.started_at || attempt.start_time || attempt.start_timestamp || attempt.timestamp)) {
-                startEvent = {
-                    event_type: 'START',
-                    timestamp: attempt.started_at || attempt.start_time || attempt.start_timestamp || attempt.timestamp
-                };
-                updates.unshift(startEvent);
-            }
-
-            if (!startEvent) {
-                const attemptKey = attempt.attemp_id || `lane_${attempt.attemp_lane}`;
-                if (localAttemptStartMap.has(attemptKey)) {
-                    startEvent = {
-                        event_type: 'START',
-                        timestamp: new Date(localAttemptStartMap.get(attemptKey)).toISOString()
-                    };
-                    updates.unshift(startEvent);
-                }
-            }
-
-            if (updates.length === 0 || !startEvent) {
-                if (liveTrackers.has(attemptId)) liveTrackers.delete(attemptId);
-                return 0;
-            }
-
-            const stopEvent = updates.slice().reverse().find(u => u.event_type === 'PRESTOP' || u.event_type === 'FINAL');
-            if (stopEvent) {
-                if (liveTrackers.has(attemptId)) liveTrackers.delete(attemptId);
-                return calculatePureDistance(attempt, competition, new Date(stopEvent.timestamp).getTime());
-            }
-
-            if (!useSmoothing) {
-                return calculatePureDistance(attempt, competition, nowMs);
-            }
-
-            const { initialV, intervaloPosta } = getCompetitionParams(attempt, competition);
-            const splits = updates
-                .filter(u => u.event_type === 'LAP')
-                .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
-            let tracker = liveTrackers.get(attemptId);
-
-            if (tracker && tracker.originalStartTimestamp !== startEvent.timestamp) {
-                liveTrackers.delete(attemptId);
-                tracker = undefined;
-            }
-
-            if (!tracker) {
-                tracker = {
-                    originalStartTimestamp: startEvent.timestamp,
-                    D_base: 0,
-                    T_base: new Date(startEvent.timestamp).getTime(),
-                    V_actual: initialV,
-                    D_actual: 0,
-                    OffsetCorreccion: 0,
-                    lastSplitTimestamp: startEvent.timestamp,
-                    isNewSplitTick: false,
-                    maxDeltaT: 0,
-                    hasCustomSpeed: false
-                };
-                liveTrackers.set(attemptId, tracker);
-            }
-
-            const latestSplit = splits.length > 0 ? splits[splits.length - 1] : startEvent;
-
-            if (tracker.lastSplitTimestamp !== latestSplit.timestamp) {
-                const T_real = new Date(latestSplit.timestamp).getTime();
-                const deltaT_total = Math.max(0.1, (T_real - tracker.T_base) / 1000);
-
-                let D_estimada_al_click = tracker.D_base + (tracker.V_actual * deltaT_total);
-                let postaObjetivo = Math.round(D_estimada_al_click / intervaloPosta) * intervaloPosta;
-
-                if (postaObjetivo <= tracker.D_base) {
-                    postaObjetivo = tracker.D_base + intervaloPosta;
-                }
-
-                const postasTotalesSaltadas = Math.round((postaObjetivo - tracker.D_base) / intervaloPosta);
-
-                if (postasTotalesSaltadas > 1) {
-                    tracker.D_base = postaObjetivo;
-                    tracker.T_base = T_real;
-                } else {
-                    const deltaD_split = postaObjetivo - tracker.D_base;
-                    let velocidadCalculada = deltaD_split / deltaT_total;
-                    const VELOCIDAD_CAP = 2.0;
-                    const VELOCIDAD_MISCLICK = 4.0;
-
-                    if (velocidadCalculada < VELOCIDAD_MISCLICK) {
-                        if (deltaT_total > 0 && deltaD_split > 0) {
-                            tracker.V_actual = Math.max(0.2, Math.min(velocidadCalculada, VELOCIDAD_CAP));
-                            tracker.hasCustomSpeed = true;
-                        }
-                        tracker.OffsetCorreccion = tracker.D_actual - postaObjetivo;
-                        tracker.D_base = postaObjetivo;
-                        tracker.T_base = T_real;
-                    }
-                }
-
-                tracker.lastSplitTimestamp = latestSplit.timestamp;
-                tracker.isNewSplitTick = true;
-                tracker.maxDeltaT = 0;
-            }
-
-            const rawDeltaT = Math.max(0, (nowMs - tracker.T_base) / 1000);
-            tracker.maxDeltaT = Math.max(tracker.maxDeltaT, rawDeltaT);
-
-            let D_ideal = tracker.D_base + (tracker.V_actual * tracker.maxDeltaT);
-
-            const maximoPermitido = tracker.D_base + (intervaloPosta * 3) - 0.01;
-            if (D_ideal > maximoPermitido) {
-                D_ideal = maximoPermitido;
-            }
-
-            const D_actual_prev = tracker.D_actual;
-            let D_calculado = D_ideal + tracker.OffsetCorreccion;
-
-            if (D_calculado < D_actual_prev && !tracker.isNewSplitTick) {
-                D_calculado = D_actual_prev;
-            }
-
-            tracker.D_actual = D_calculado;
-
-            if (!tracker.isNewSplitTick) {
-                tracker.OffsetCorreccion *= 0.85;
-            } else {
-                tracker.isNewSplitTick = false;
-            }
-
-            if (Math.abs(tracker.OffsetCorreccion) < 0.01) tracker.OffsetCorreccion = 0;
-
-            return Math.floor(tracker.D_actual);
-        }
-
-        // Parser de timestamps para estática y fallbacks
-        function parseTimestampMs(val, sessionDate) {
-            if (!val && val !== 0) return 0;
-            if (typeof val === 'number') {
-                return val < 10000000000 ? val * 1000 : val;
-            }
-            if (typeof val === 'string') {
-                const str = val.trim();
-                if (/^\d+$/.test(str)) {
-                    const num = Number(str);
-                    return num < 10000000000 ? num * 1000 : num;
-                }
-                const parsed = Date.parse(str);
-                if (!isNaN(parsed) && parsed > 0) return parsed;
-
-                const timeMatch = str.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
-                if (timeMatch) {
-                    const d = sessionDate ? new Date(sessionDate) : new Date();
-                    d.setHours(parseInt(timeMatch[1], 10), parseInt(timeMatch[2], 10), parseInt(timeMatch[3] || '0', 10), 0);
-                    return d.getTime();
-                }
-            }
-            return 0;
         }
 
         // =========================================================

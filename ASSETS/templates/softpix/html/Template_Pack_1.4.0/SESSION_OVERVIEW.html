@@ -47,6 +47,62 @@
             margin: 0 !important;
             flex: 0 0 0 !important;
         }
+
+        /* Alineación vertical perfecta y simétrica en todas las filas */
+        .apnea-row,
+        .apnea-table-head {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+        }
+
+        .apnea-col-ot,
+        .apnea-col-lane,
+        .apnea-col-country,
+        .apnea-col-athlete,
+        .apnea-col-ap,
+        .apnea-col-rp,
+        .apnea-col-discipline,
+        .apnea-col-notes,
+        .head-ot,
+        .head-lane,
+        .head-country,
+        .head-athlete,
+        .head-ap,
+        .head-rp,
+        .head-discipline,
+        .head-notes {
+            display: inline-flex !important;
+            align-items: center !important;
+            line-height: 1 !important;
+            transform: translateY(0.06vw) !important;
+        }
+
+        .apnea-col-flag,
+        .head-flag,
+        .apnea-col-card,
+        .head-card {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            line-height: 1 !important;
+        }
+
+        .flag-icon {
+            display: block !important;
+            height: 0.85em !important;
+            width: 1.25em !important;
+            background-size: cover !important;
+            background-position: center center !important;
+            border-radius: 2px !important;
+            line-height: 1 !important;
+            vertical-align: middle !important;
+            margin: 0 !important;
+        }
+
+        .flag-icon:before {
+            content: "" !important;
+        }
     </style>
 
     <script>
@@ -557,8 +613,7 @@
                     const nextIdx = currentPageIndex + 1;
                     animatePageTransition(nextIdx);
                 } else {
-                    // Fin del tiempo visible de la última página -> ejecutar animación de salida.
-                    // El panel de SPX queda en estado PLAY intencionalmente (comportamiento esperado).
+                    // Fin del tiempo visible de la última página -> ejecutar animación de salida
                     stopPaginationTimer();
                     runAnimationOUT();
                 }
@@ -775,9 +830,9 @@
                     "items": [
                         { "text": "5 Seconds", "value": "5" },
                         { "text": "7 Seconds (Recommended)", "value": "7" },
-                        { "text": "10 Seconds", "value": "10" },
-                        { "text": "15 Seconds", "value": "15" },
-                        { "text": "20 Seconds", "value": "20" }
+                        { "text": "8 Seconds", "value": "8" },
+                        { "text": "9 Seconds", "value": "9" },
+                        { "text": "10 Seconds", "value": "10" }
                     ]
                 },
                 {

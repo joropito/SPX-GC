@@ -97,7 +97,7 @@ var localAttemptFinishMap = (typeof window !== 'undefined') ? window.localAttemp
 
 // Parsear timestamp a milisegundos de forma robusta
 function parseTimestampMs(str, sessionDate) {
-    if (!str) return 0;
+    if (!str && str !== 0) return 0;
     if (typeof str === 'number') return str < 10000000000 ? str * 1000 : str;
     if (typeof str === 'string') {
         const trimmed = str.trim();
@@ -105,15 +105,28 @@ function parseTimestampMs(str, sessionDate) {
             const num = Number(trimmed);
             return num < 10000000000 ? num * 1000 : num;
         }
-        const parsed = Date.parse(trimmed);
-        if (!isNaN(parsed) && parsed > 0) return parsed;
 
         const timeMatch = trimmed.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
         if (timeMatch) {
+            const hours = parseInt(timeMatch[1], 10);
+            const minutes = parseInt(timeMatch[2], 10);
+            const seconds = parseInt(timeMatch[3] || '0', 10);
+
+            if (sessionDate && typeof sessionDate === 'string' && /^\d{4}-\d{2}-\d{2}/.test(sessionDate)) {
+                const dateParts = sessionDate.split(/[-T ]/);
+                const y = parseInt(dateParts[0], 10);
+                const m = parseInt(dateParts[1], 10) - 1;
+                const d = parseInt(dateParts[2], 10);
+                return new Date(y, m, d, hours, minutes, seconds, 0).getTime();
+            }
+
             const d = sessionDate ? new Date(sessionDate) : new Date();
-            d.setHours(parseInt(timeMatch[1], 10), parseInt(timeMatch[2], 10), parseInt(timeMatch[3] || '0', 10), 0);
+            d.setHours(hours, minutes, seconds, 0);
             return d.getTime();
         }
+
+        const parsed = Date.parse(trimmed);
+        if (!isNaN(parsed) && parsed > 0) return parsed;
     }
     return 0;
 }

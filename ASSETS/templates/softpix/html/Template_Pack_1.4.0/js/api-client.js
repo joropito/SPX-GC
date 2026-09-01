@@ -38,7 +38,7 @@ async function _request(url, method, payload = null) {
 // =============================================
 
 /** Obtiene el estado completo de la base de datos. GET /api/all */
-export async function fetchAll() {
+async function fetchAll() {
     return _request(`${API_BASE}/all`, 'GET');
 }
 
@@ -46,12 +46,12 @@ export async function fetchAll() {
  * Crea y devuelve un EventSource conectado al canal SSE.
  * @returns {EventSource}
  */
-export function connectSSE() {
+function connectSSE() {
     return new EventSource(`${API_BASE}/events`);
 }
 
 /** Reinicia la base de datos (borra atletas, sesiones, intentos). POST /api/db/reset */
-export async function resetDatabase() {
+async function resetDatabase() {
     return _request(`${API_BASE}/db/reset`, 'POST', {});
 }
 
@@ -60,13 +60,23 @@ export async function resetDatabase() {
 // =============================================
 
 /** Obtiene la configuración de la competencia. GET /api/competition */
-export async function getCompetition() {
+async function getCompetition() {
     return _request(`${API_BASE}/competition`, 'GET');
 }
 
 /** Actualiza la configuración de la competencia. POST /api/competition */
-export async function updateCompetition(payload) {
+async function updateCompetition(payload) {
     return _request(`${API_BASE}/competition`, 'POST', payload);
+}
+
+/** Obtiene el horario oficial del servidor. GET /api/official-time */
+async function getOfficialTime() {
+    return _request(`${API_BASE}/official-time`, 'GET');
+}
+
+/** Ajusta el horario oficial del servidor o sincroniza con el reloj base. POST /api/official-time */
+async function setOfficialTime(payload) {
+    return _request(`${API_BASE}/official-time`, 'POST', payload);
 }
 
 /**
@@ -74,7 +84,7 @@ export async function updateCompetition(payload) {
  * @param {object} competition - Objeto de configuración de la competencia
  * @returns {number} Duración del SP en segundos (por defecto 15 para AIDA, 20 para CMAS o valor personalizado)
  */
-export function getCompetitionSpDuration(competition) {
+function getCompetitionSpDuration(competition) {
     if (!competition) return 15;
     if (typeof competition.sp_duration === 'number' && competition.sp_duration > 0) return competition.sp_duration;
     if (typeof competition.surface_protocol_duration === 'number' && competition.surface_protocol_duration > 0) return competition.surface_protocol_duration;
@@ -91,22 +101,22 @@ export function getCompetitionSpDuration(competition) {
 // =============================================
 
 /** Lista todos los atletas. GET /api/athletes */
-export async function getAthletes() {
+async function getAthletes() {
     return _request(`${API_BASE}/athletes`, 'GET');
 }
 
 /** Crea un atleta. POST /api/athletes */
-export async function createAthlete(payload) {
+async function createAthlete(payload) {
     return _request(`${API_BASE}/athletes`, 'POST', payload);
 }
 
 /** Actualiza un atleta. PUT /api/athletes/:id */
-export async function updateAthlete(id, payload) {
+async function updateAthlete(id, payload) {
     return _request(`${API_BASE}/athletes/${id}`, 'PUT', payload);
 }
 
 /** Elimina un atleta y sus intentos asociados. DELETE /api/athletes/:id */
-export async function deleteAthlete(id) {
+async function deleteAthlete(id) {
     return _request(`${API_BASE}/athletes/${id}`, 'DELETE');
 }
 
@@ -115,22 +125,22 @@ export async function deleteAthlete(id) {
 // =============================================
 
 /** Lista todas las sesiones. GET /api/sessions */
-export async function getSessions() {
+async function getSessions() {
     return _request(`${API_BASE}/sessions`, 'GET');
 }
 
 /** Crea una sesión. POST /api/sessions */
-export async function createSession(payload) {
+async function createSession(payload) {
     return _request(`${API_BASE}/sessions`, 'POST', payload);
 }
 
 /** Actualiza una sesión. PUT /api/sessions/:id */
-export async function updateSession(id, payload) {
+async function updateSession(id, payload) {
     return _request(`${API_BASE}/sessions/${id}`, 'PUT', payload);
 }
 
 /** Elimina una sesión y sus intentos asociados. DELETE /api/sessions/:id */
-export async function deleteSession(id) {
+async function deleteSession(id) {
     return _request(`${API_BASE}/sessions/${id}`, 'DELETE');
 }
 
@@ -139,29 +149,29 @@ export async function deleteSession(id) {
 // =============================================
 
 /** Lista intentos con filtros opcionales. GET /api/attempts */
-export async function getAttempts(params = {}) {
+async function getAttempts(params = {}) {
     const query = new URLSearchParams(params).toString();
     const url = query ? `${API_BASE}/attempts?${query}` : `${API_BASE}/attempts`;
     return _request(url, 'GET');
 }
 
 /** Crea un intento. POST /api/attempts */
-export async function createAttempt(payload) {
+async function createAttempt(payload) {
     return _request(`${API_BASE}/attempts`, 'POST', payload);
 }
 
 /** Actualiza un intento. PUT /api/attempts/:id */
-export async function updateAttempt(id, payload) {
+async function updateAttempt(id, payload) {
     return _request(`${API_BASE}/attempts/${id}`, 'PUT', payload);
 }
 
 /** Elimina un intento. DELETE /api/attempts/:id */
-export async function deleteAttempt(id) {
+async function deleteAttempt(id) {
     return _request(`${API_BASE}/attempts/${id}`, 'DELETE');
 }
 
 /** Inicia un intento (marca PERFORMING). POST /api/attempts/:id/start */
-export async function startAttempt(id, timestamp = null) {
+async function startAttempt(id, timestamp = null) {
     const payload = timestamp ? { timestamp } : {};
     return _request(`${API_BASE}/attempts/${id}/start`, 'POST', payload);
 }
@@ -171,12 +181,12 @@ export async function startAttempt(id, timestamp = null) {
  * @param {string} id - ID del intento
  * @param {object} payload - { judge_id, force?, release? }
  */
-export async function claimAttempt(id, payload) {
+async function claimAttempt(id, payload) {
     return _request(`${API_BASE}/attempts/${id}/claim`, 'POST', payload);
 }
 
 /** Envía heartbeat de renovación de lock. POST /api/attempts/:id/heartbeat */
-export async function sendAttemptHeartbeat(id, judgeId) {
+async function sendAttemptHeartbeat(id, judgeId) {
     return _request(`${API_BASE}/attempts/${id}/heartbeat`, 'POST', { judge_id: judgeId });
 }
 
@@ -185,27 +195,27 @@ export async function sendAttemptHeartbeat(id, judgeId) {
  * @param {string} id - ID del intento
  * @param {object} payload - { event_type, timestamp, ... }
  */
-export async function sendAttemptLiveEvent(id, payload) {
+async function sendAttemptLiveEvent(id, payload) {
     return _request(`${API_BASE}/attempts/${id}/live`, 'POST', payload);
 }
 
 /** Asigna tarjeta a un intento. POST /api/attempts/:id/card */
-export async function setAttemptCard(id, card) {
+async function setAttemptCard(id, card) {
     return _request(`${API_BASE}/attempts/${id}/card`, 'POST', { card });
 }
 
 /** Guarda resultado oficial de un intento. POST /api/attempts/:id/result */
-export async function saveAttemptResult(id, payload) {
+async function saveAttemptResult(id, payload) {
     return _request(`${API_BASE}/attempts/${id}/result`, 'POST', payload);
 }
 
 /** Resetea un intento individual. POST /api/attempts/:id/reset */
-export async function resetAttempt(id) {
+async function resetAttempt(id) {
     return _request(`${API_BASE}/attempts/${id}/reset`, 'POST', {});
 }
 
 /** Resetea el estado de todos los intentos. POST /api/attempts/reset-all */
-export async function resetAllAttempts() {
+async function resetAllAttempts() {
     return _request(`${API_BASE}/attempts/reset-all`, 'POST', {});
 }
 
@@ -215,7 +225,7 @@ export async function resetAllAttempts() {
  * @param {string} id - ID del intento
  * @param {string} judgeId - ID del juez
  */
-export function releaseAttemptBeacon(id, judgeId) {
+function releaseAttemptBeacon(id, judgeId) {
     if (navigator.sendBeacon) {
         const payload = JSON.stringify({ judge_id: judgeId, release: true, force: true });
         navigator.sendBeacon(
@@ -230,12 +240,12 @@ export function releaseAttemptBeacon(id, judgeId) {
 // =============================================
 
 /** Obtiene la sesión y heat activos. GET /api/broadcast */
-export async function getBroadcast() {
+async function getBroadcast() {
     return _request(`${API_BASE}/broadcast`, 'GET');
 }
 
 /** Actualiza la sesión o heat activos. POST /api/broadcast */
-export async function updateBroadcast(payload) {
+async function updateBroadcast(payload) {
     return _request(`${API_BASE}/broadcast`, 'POST', payload);
 }
 
@@ -243,7 +253,10 @@ export async function updateBroadcast(payload) {
 // Estimación de Distancia Dinámica en Vivo
 // =============================================
 
-const liveTrackers = new Map();
+if (typeof window !== 'undefined' && !window.liveTrackers) {
+    window.liveTrackers = new Map();
+}
+var liveTrackers = (typeof window !== 'undefined' && window.liveTrackers) ? window.liveTrackers : new Map();
 
 /**
  * Obtiene velocidad inicial e intervalo de posta según configuración de la competencia.
@@ -289,7 +302,7 @@ function getCompetitionParams(attempt, competition) {
  * @param {number} targetTimeMs - Timestamp objetivo en ms
  * @returns {number} Distancia en metros redondeada hacia abajo
  */
-export function calculatePureDistance(attempt, competition, targetTimeMs) {
+function calculatePureDistance(attempt, competition, targetTimeMs) {
     if (!attempt) return 0;
     const { initialV, intervaloPosta } = getCompetitionParams(attempt, competition);
     let updates = (attempt.judge_updates || []).filter(u => new Date(u.timestamp).getTime() <= targetTimeMs);
@@ -358,7 +371,7 @@ export function calculatePureDistance(attempt, competition, targetTimeMs) {
  * @param {boolean} [useSmoothing=true] - Aplica interpolación y suavizado de postas
  * @returns {number} Distancia estimada en metros
  */
-export function calculateLiveDynamicDistance(attempt, competition, nowMs = Date.now(), useSmoothing = true) {
+function calculateLiveDynamicDistance(attempt, competition, nowMs = Date.now(), useSmoothing = true) {
     if (!attempt || !attempt.attemp_id) return 0;
     const attemptId = attempt.attemp_id;
     let updates = Array.isArray(attempt.judge_updates) ? [...attempt.judge_updates] : [];
@@ -483,4 +496,51 @@ export function calculateLiveDynamicDistance(attempt, competition, nowMs = Date.
     if (Math.abs(tracker.OffsetCorreccion) < 0.01) tracker.OffsetCorreccion = 0;
 
     return Math.floor(tracker.D_actual);
+}
+
+
+// Exponer en objeto global para compatibilidad con scripts clasicos en navegador
+const ApiClient = {
+    fetchAll,
+    connectSSE,
+    resetDatabase,
+    getCompetition,
+    updateCompetition,
+    getOfficialTime,
+    setOfficialTime,
+    getCompetitionSpDuration,
+    getAthletes,
+    createAthlete,
+    updateAthlete,
+    deleteAthlete,
+    getSessions,
+    createSession,
+    updateSession,
+    deleteSession,
+    getAttempts,
+    createAttempt,
+    updateAttempt,
+    deleteAttempt,
+    startAttempt,
+    claimAttempt,
+    sendAttemptHeartbeat,
+    sendAttemptLiveEvent,
+    setAttemptCard,
+    saveAttemptResult,
+    resetAttempt,
+    resetAllAttempts,
+    releaseAttemptBeacon,
+    getBroadcast,
+    updateBroadcast,
+    calculatePureDistance,
+    calculateLiveDynamicDistance
+};
+
+if (typeof window !== 'undefined') {
+    window.ApiClient = ApiClient;
+    Object.assign(window, ApiClient);
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = ApiClient;
 }
