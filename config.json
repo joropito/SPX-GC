@@ -17,7 +17,7 @@
       "Bajau50/Bajau50",
       "Bajau50/Test"
     ],
-    "renderer": "popup",
+    "renderer": "normal",
     "disableLocalRenderer": false
   },
   "globalExtras": {
@@ -25,5 +25,5 @@
   },
   "warning": "Modifications done in the SPX will overwrite this file.",
   "copyright": "(c) 2020- SPX Graphics (https://spxgraphics.com)",
-  "updated": "2026-08-31T23:29:44.754Z"
+  "updated": "2026-09-01T00:55:34.904Z"
 }

@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Condensed:ital,wght@0,300;0,400;0,700;0,900;1,700;1,900&family=Roboto:ital,wght@0,300;0,400;0,500;0,700;0,900;1,700;1,900&display=swap');
+
 :root {
   /* =========================================================
      APNEA BROADCAST - THEME DESIGN TOKENS
@@ -48,27 +50,32 @@
 }
 
 /* =========================================================
-   TIPOGRAFÍA - OXANIUM & MONO NUMÉRICO
+   TIPOGRAFÍA - ROBOTO CONDENSED & ROBOTO (MÉTRICAS SIMÉTRICAS)
    ========================================================= */
 @font-face {
   font-family: "LITE";
-  src: url("../fonts/Oxanium/static/Oxanium-Regular.ttf");
+  src: local("Roboto Condensed Light"), local("Roboto Light"), local("RobotoCondensed-Light"), url("../fonts/BarlowSemiCondensed-Light.ttf");
+  font-weight: 300;
 }
 @font-face {
   font-family: "REGU";
-  src: url("../fonts/Oxanium/static/Oxanium-Medium.ttf");
+  src: local("Roboto Condensed"), local("Roboto"), local("RobotoCondensed-Regular"), url("../fonts/BarlowSemiCondensed-Regular.ttf");
+  font-weight: 400;
 }
 @font-face {
   font-family: "BOLD";
-  src: url("../fonts/Oxanium/static/Oxanium-Bold.ttf");
+  src: local("Roboto Condensed Bold"), local("Roboto Bold"), local("RobotoCondensed-Bold"), url("../fonts/BarlowSemiCondensed-Bold.ttf");
+  font-weight: 700;
 }
 @font-face {
   font-family: "BLAC";
-  src: url("../fonts/Oxanium/static/Oxanium-ExtraBold.ttf");
+  src: local("Roboto Condensed Black"), local("Roboto Black"), local("RobotoCondensed-Black"), url("../fonts/BarlowSemiCondensed-Black.ttf");
+  font-weight: 900;
 }
 @font-face {
   font-family: "DIGI";
-  src: url("../fonts/ShareTechMono-Regular.ttf");
+  src: local("Roboto Condensed Bold"), local("Roboto Bold"), url("../fonts/ShareTechMono-Regular.ttf");
+  font-weight: 700;
 }
 
 /* =========================================================
@@ -518,7 +525,6 @@
   flex-shrink: 0;
   box-sizing: border-box;
   line-height: 1;
-  transform: translateY(0.06vw);
 }
 
 .apnea-col-lane {
@@ -532,7 +538,6 @@
   justify-content: center;
   flex-shrink: 0;
   line-height: 1;
-  transform: translateY(0.06vw);
 }
 
 .apnea-col-flag {
@@ -557,7 +562,6 @@
   margin-right: 0.4vw;
   flex-shrink: 0;
   line-height: 1;
-  transform: translateY(0.06vw);
 }
 
 .apnea-col-athlete {
@@ -572,7 +576,6 @@
   text-overflow: ellipsis;
   padding-right: 0.6vw;
   line-height: 1;
-  transform: translateY(0.06vw);
 }
 
 .apnea-col-ap,
@@ -589,7 +592,6 @@
   color: var(--theme-secondary);
   box-sizing: border-box;
   line-height: 1;
-  transform: translateY(0.06vw);
 }
 
 /* Formato Compacto para Tablas de Sesión Completa (hasta 12-16 intentos) */
@@ -647,7 +649,6 @@
   overflow: hidden;
   padding: 0 0.2vw;
   line-height: 1;
-  transform: translateY(0.06vw);
 }
 
 /* Textos y Badges para Columna de Notas (Sin recuadros, sin resplandor, tipografía broadcast nítida) */

@@ -46,23 +46,29 @@
             display: inline-flex !important;
             flex-direction: row !important;
             align-items: center !important;
-            justify-content: center !important;
+            justify-content: space-between !important;
             width: auto !important;
-            min-width: 0 !important;
-            max-width: max-content !important;
+            min-width: 13.8vw !important;
             height: 2.3vw;
             min-height: 36px;
             max-height: 48px;
-            padding: 0 0.8vw;
+            padding: 0 0.85vw;
             border-radius: 50px;
-            gap: 0.55vw;
+            gap: 0.8vw;
             box-sizing: border-box;
             box-shadow: 0 0.8vh 2.5vh rgba(0, 0, 0, 0.45);
-            font-family: 'BLAC', 'Oxanium', sans-serif;
+            font-family: 'BLAC', 'Roboto Condensed', 'Roboto', sans-serif;
             letter-spacing: 0.04em;
             user-select: none;
             white-space: nowrap;
             overflow: visible;
+        }
+
+        .ot-pill-left {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45vw;
+            flex-shrink: 0;
         }
 
         /* Ícono Circular de Reloj */
@@ -90,27 +96,27 @@
             display: block;
         }
 
-        /* Título / Label (Corrección óptica de línea base para mayúsculas) */
+        /* Título / Label a la izquierda */
         .ot-pill-label {
             display: inline-flex;
             align-items: center;
-            font-family: 'BLAC', 'Oxanium', sans-serif;
-            font-size: 1.08vw;
+            font-family: 'BLAC', 'Roboto Condensed', 'Roboto', sans-serif;
+            font-size: 1.15vw;
             font-weight: 900;
             text-transform: uppercase;
-            letter-spacing: 0.06em;
+            letter-spacing: 0.05em;
             line-height: 1;
             flex-shrink: 0;
             margin: 0;
             padding: 0;
-            transform: translateY(0.08vw); /* Alineación óptica exacta al centro del ícono */
         }
 
-        /* Dígitos de Tiempo (Corrección óptica de línea base para números) */
+        /* Dígitos de Tiempo a la derecha con ancho fijo para evitar saltos o resize */
         .ot-pill-time {
             display: inline-flex;
             align-items: center;
-            font-family: 'BLAC', 'Oxanium', sans-serif;
+            justify-content: flex-end;
+            font-family: 'BLAC', 'Roboto Condensed', 'Roboto', sans-serif;
             font-size: 1.08vw;
             font-weight: 900;
             letter-spacing: 0.04em;
@@ -119,32 +125,35 @@
             flex-shrink: 0;
             margin: 0;
             padding: 0;
-            transform: translateY(0.08vw); /* Alineación óptica exacta al centro del ícono */
         }
 
         .ot-sign {
             display: inline-flex;
             align-items: center;
+            justify-content: center;
+            width: 0.65vw; /* Reserva el espacio exacto del signo + para que nunca ocurra resize */
             line-height: 1;
-            margin-right: 0.06vw;
+            text-align: center;
+            flex-shrink: 0;
         }
 
         .ot-digits {
             display: inline-flex;
             align-items: center;
             line-height: 1;
+            font-variant-numeric: tabular-nums;
         }
 
         /* =========================================================
-           6 ESTILOS DE COLOR DISTINTOS (SOLIDOS Y MODERNOS)
+           6 ESTILOS DE COLOR DISTINTOS (SOLIDOS, NITIDOS Y SIN GLOW)
            ========================================================= */
 
         /* 1. Naranja Transmisión (Referencia Oficial) */
         .ot-pill.style-orange {
             background: linear-gradient(135deg, #ff7700 0%, #ff5500 100%);
             color: #ffffff;
-            border: 1.5px solid rgba(255, 255, 255, 0.35);
-            box-shadow: 0 0.8vh 2.5vh rgba(255, 85, 0, 0.35), 0 0 1vw rgba(255, 119, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
         }
         .ot-pill.style-orange .ot-pill-icon {
             color: #ffffff;
@@ -159,8 +168,8 @@
         .ot-pill.style-cyan {
             background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%);
             color: #ffffff;
-            border: 1.5px solid rgba(255, 255, 255, 0.35);
-            box-shadow: 0 0.8vh 2.5vh rgba(0, 180, 219, 0.35), 0 0 1vw rgba(0, 180, 219, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
         }
         .ot-pill.style-cyan .ot-pill-icon {
             color: #ffffff;
@@ -175,8 +184,8 @@
         .ot-pill.style-emerald {
             background: linear-gradient(135deg, #00b074 0%, #008b58 100%);
             color: #ffffff;
-            border: 1.5px solid rgba(255, 255, 255, 0.35);
-            box-shadow: 0 0.8vh 2.5vh rgba(0, 176, 116, 0.35), 0 0 1vw rgba(0, 176, 116, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
         }
         .ot-pill.style-emerald .ot-pill-icon {
             color: #ffffff;
@@ -191,8 +200,8 @@
         .ot-pill.style-blue {
             background: linear-gradient(135deg, #1877f2 0%, #0d52b3 100%);
             color: #ffffff;
-            border: 1.5px solid rgba(255, 255, 255, 0.35);
-            box-shadow: 0 0.8vh 2.5vh rgba(24, 119, 242, 0.35), 0 0 1vw rgba(24, 119, 242, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
         }
         .ot-pill.style-blue .ot-pill-icon {
             color: #ffffff;
@@ -207,8 +216,8 @@
         .ot-pill.style-crimson {
             background: linear-gradient(135deg, #ff2d55 0%, #d9002c 100%);
             color: #ffffff;
-            border: 1.5px solid rgba(255, 255, 255, 0.35);
-            box-shadow: 0 0.8vh 2.5vh rgba(255, 45, 85, 0.35), 0 0 1vw rgba(255, 45, 85, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
         }
         .ot-pill.style-crimson .ot-pill-icon {
             color: #ffffff;
@@ -223,8 +232,8 @@
         .ot-pill.style-dark {
             background: linear-gradient(135deg, #0c1628 0%, #060d19 100%);
             color: #ffffff;
-            border: 1.5px solid rgba(0, 229, 255, 0.55);
-            box-shadow: 0 0.8vh 2.5vh rgba(0, 4, 15, 0.7), 0 0 1vw rgba(0, 229, 255, 0.2);
+            border: 1px solid rgba(0, 229, 255, 0.35);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
         }
         .ot-pill.style-dark .ot-pill-icon {
             color: #00e5ff;
@@ -431,16 +440,32 @@
             };
         }
 
-        // Validar si el tiempo ya está excedido / finalizado al momento de cargar
-        function isTimeExpired() {
+        // Validar si el tiempo está en ventana de visualización:
+        // 1. Si faltan más de 3 minutos para el OT -> No mostrar nada y terminar
+        // 2. Si ya pasó la duración máxima tras el OT -> No mostrar nada y terminar
+        function isTimeValidForDisplay() {
             const sessionData = getActiveSessionAndOT();
-            if (!sessionData || !sessionData.otMs) return true;
+            if (!sessionData || !sessionData.otMs) return false;
 
             const nowMs = Date.now() - clockOffset;
             const otMs = sessionData.otMs;
             const maxAllowedSec = getMaxDurationSec();
 
-            return (nowMs >= otMs + (maxAllowedSec * 1000));
+            // Si faltan más de 3 minutos (180 segundos) para el OT -> No mostrar nada
+            if (otMs - nowMs > 180 * 1000) {
+                return false;
+            }
+
+            // Si ya pasó la duración máxima tras el OT -> No mostrar nada
+            if (nowMs >= otMs + (maxAllowedSec * 1000)) {
+                return false;
+            }
+
+            return true;
+        }
+
+        function isTimeExpired() {
+            return !isTimeValidForDisplay();
         }
 
         // Bucle de actualización del contador oficial en tiempo real
@@ -460,7 +485,7 @@
             const maxAllowedSec = getMaxDurationSec();
 
             if (nowMs < otMs) {
-                // Pre-OT Countdown (-03:00 -> 00:00)
+                // Pre-OT Countdown (03:00 -> 00:00 sin signo)
                 const remainingMs = otMs - nowMs;
                 const remainingSec = Math.ceil(remainingMs / 1000);
 
@@ -468,11 +493,16 @@
                 if (digitsEl) digitsEl.innerText = formatMinSec(remainingSec);
 
             } else {
-                // Post-OT (+00:01 -> +00:30)
+                // Post-OT (00:00 sin signo -> +00:01 -> +00:30)
                 const elapsedMs = nowMs - otMs;
                 const elapsedSec = Math.floor(elapsedMs / 1000);
 
-                if (elapsedSec <= maxAllowedSec) {
+                if (elapsedSec <= 0) {
+                    // Exactamente en el Official Top (00:00 sin signo +)
+                    if (signEl) signEl.innerText = '';
+                    if (digitsEl) digitsEl.innerText = '00:00';
+                } else if (elapsedSec <= maxAllowedSec) {
+                    // Tiempo transcurrido (+00:01 en adelante)
                     if (signEl) signEl.innerText = '+';
                     if (digitsEl) digitsEl.innerText = formatMinSec(elapsedSec);
                 } else {
@@ -757,15 +787,17 @@
     <div class="SPXWindow">
         <!-- Pastilla Horizontal Compacta (Ajuste automático al contenido y % X/Y granular) -->
         <div id="gfx" class="ot-pill style-orange">
-            <div class="ot-pill-icon">
-                <svg class="ot-clock-svg" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="9"></circle>
-                    <polyline points="12 7 12 12 15 14"></polyline>
-                </svg>
+            <div class="ot-pill-left">
+                <div class="ot-pill-icon">
+                    <svg class="ot-clock-svg" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="9"></circle>
+                        <polyline points="12 7 12 12 15 14"></polyline>
+                    </svg>
+                </div>
+                <div class="ot-pill-label" id="otTitle">OFFICIAL TOP</div>
             </div>
-            <div class="ot-pill-label" id="otTitle">OFFICIAL TOP</div>
             <div class="ot-pill-time" id="otTimerDisplay">
-                <span class="ot-sign" id="otTimerSign">-</span><span class="ot-digits" id="otTimerDigits">03:00</span>
+                <span class="ot-sign" id="otTimerSign"></span><span class="ot-digits" id="otTimerDigits">03:00</span>
             </div>
         </div>
     </div>
