@@ -140,6 +140,7 @@
         };
 
         let isOverlayVisible = false;
+        let isAnimatingIn = false;
         let eventSource = null;
         let clockOffset = 0;
         let liveTickerTimer = null;
@@ -224,22 +225,35 @@
             pageDurationMs = getPageDurationConfig();
         }
 
-        // Cargar datos iniciales completos vía API REST
-        async function loadInitialData() {
-            try {
-                const apiBase = getApiBaseUrl();
-                const res = await fetch(`${apiBase}/api/all`, { cache: 'no-store' });
-                if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
-                const data = await res.json();
+        // Cargar datos iniciales completos vía API REST con deduplicación de promesas en vuelo
+        let initialDataPromise = null;
 
-                clockOffset = Date.now() - (data.server_now || Date.now());
-                appState = data;
-
-                syncSessionData();
-            } catch (err) {
-                console.error("Error al cargar datos iniciales:", err);
-                setTimeout(loadInitialData, 3000);
+        function loadInitialData(force = false) {
+            if (initialDataPromise && !force) {
+                return initialDataPromise;
             }
+
+            const apiBase = getApiBaseUrl();
+            initialDataPromise = fetch(`${apiBase}/api/all`, { cache: 'no-store' })
+                .then(res => {
+                    if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+                    return res.json();
+                })
+                .then(data => {
+                    clockOffset = Date.now() - (data.server_now || Date.now());
+                    appState = data;
+                    initialDataPromise = null;
+                    syncSessionData();
+                    return data;
+                })
+                .catch(err => {
+                    console.error("Error al cargar datos iniciales:", err);
+                    initialDataPromise = null;
+                    setTimeout(() => loadInitialData(true), 3000);
+                    throw err;
+                });
+
+            return initialDataPromise;
         }
 
         // Configurar conexión SSE en tiempo real
@@ -254,11 +268,15 @@
                 eventSource = new EventSource(`${apiBase}/api/events`);
 
                 eventSource.onopen = () => {
-                    loadInitialData();
+                    // Si aún no tenemos datos, asegurar carga inicial
+                    if (!appState || (!appState.sessions && !appState.heats) || !appState.attempts || appState.attempts.length === 0) {
+                        loadInitialData();
+                    }
                 };
 
                 eventSource.onmessage = async (e) => {
-                    if (e.data === 'update' || !e.data || e.data === 'connected') {
+                    // Solo recargar ante eventos reales de actualización de datos ('update')
+                    if (e.data === 'update') {
                         try {
                             const res = await fetch(`${apiBase}/api/all`, { cache: 'no-store' });
                             if (res.ok) {
@@ -444,8 +462,10 @@
             // Actualizar título de la sesión activa
             if (e('sessionTitle')) e('sessionTitle').innerText = sessionInfo.sessionName;
 
-            // Renderizar la página actual si no está en medio de una transición
-            if (!isTransitioningPage) {
+            // Renderizar la página actual si no está en transición o si estaba mostrando mensaje vacío
+            const containerEl = e('lanesContainer');
+            const isShowingEmptyMsg = Boolean(containerEl && containerEl.querySelector('.empty-heat-msg'));
+            if ((!isTransitioningPage && !isAnimatingIn) || isShowingEmptyMsg) {
                 renderPageRows(currentPageIndex);
             }
         }
@@ -682,21 +702,44 @@
             }
 
             startLiveTicker();
-            runAnimationIN();
+
+            // Si el overlay ya está visible y no está animando la entrada, sincronizar en caliente
+            if (isOverlayVisible && !isAnimatingIn) {
+                syncSessionData();
+            }
         }
 
         // Animación de entrada: Cortina que baja desde arriba
-        function runAnimationIN() {
+        async function runAnimationIN() {
+            if (isAnimatingIn) return;
             isOverlayVisible = true;
+
+            // Esperar que los datos de la sesión estén listos antes de animar para evitar tabla vacía
+            if (!appState || (!appState.sessions && !appState.heats) || !appState.attempts || appState.attempts.length === 0) {
+                try {
+                    await loadInitialData();
+                } catch (_) {}
+            }
+
             if (window.spxSetState) window.spxSetState('PLAYING');
 
-            anime.remove('#gfx');
-            anime.remove('.apnea-row');
+            stopPaginationTimer();
+            anime.remove(['#gfx', '.apnea-row']);
 
-            // Renderizar primera página fresca
+            // Renderizar primera página fresca con datos completos
             currentPageIndex = 0;
             lockedContainerHeight = 0;
-            syncSessionData();
+            const sessionInfo = getActiveSessionInfo();
+            if (sessionInfo) {
+                currentSessionAttempts = sessionInfo.attempts;
+                itemsPerPage = getItemsPerPageConfig();
+                pageSlices = calculateOtAwarePageSlices(currentSessionAttempts, itemsPerPage);
+                totalPages = Math.max(1, pageSlices.length);
+                if (e('sessionTitle')) e('sessionTitle').innerText = sessionInfo.sessionName;
+            }
+            renderPageRows(0);
+
+            isAnimatingIn = true;
 
             // Preparar estado inicial para apertura de cortina desde arriba hacia abajo
             anime.set('#gfx', {
@@ -711,6 +754,7 @@
             var tl = anime.timeline({
                 easing: 'easeOutCubic',
                 complete: function() {
+                    isAnimatingIn = false;
                     anime.set('#gfx', { clipPath: 'none', opacity: 1 });
                     anime.set('.apnea-row', { opacity: 1 });
                     if (window.spxSetState) window.spxSetState('PLAYING');
@@ -736,6 +780,7 @@
         // Animación de salida: Cortina que sube de abajo hacia arriba (invertido)
         function runAnimationOUT() {
             stopPaginationTimer();
+            isAnimatingIn = false;
 
             if (!isOverlayVisible) {
                 if (window.spxSetState) window.spxSetState('STOPPED');

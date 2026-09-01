@@ -313,22 +313,34 @@
             return finishMs;
         }
 
-        // Cargar estado inicial y calcular offset del reloj con el servidor
-        async function loadInitialData() {
-            try {
-                const apiBase = getApiBaseUrl();
-                const res = await fetch(`${apiBase}/api/all`);
-                if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
-                const data = await res.json();
+        // Cargar estado inicial y calcular offset del reloj con el servidor (con deduplicación)
+        let initialDataPromise = null;
+        let isAnimatingIn = false;
 
-                // Guardar offset entre el reloj local y el servidor para evitar desfases
-                clockOffset = Date.now() - (data.server_now || Date.now());
-                appState = data;
-
-                syncHeatStructure();
-            } catch (err) {
-                console.error("Error al cargar datos iniciales:", err);
+        function loadInitialData(force = false) {
+            if (initialDataPromise && !force) {
+                return initialDataPromise;
             }
+            const apiBase = getApiBaseUrl();
+            initialDataPromise = fetch(`${apiBase}/api/all`, { cache: 'no-store' })
+                .then(res => {
+                    if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+                    return res.json();
+                })
+                .then(data => {
+                    // Guardar offset entre el reloj local y el servidor para evitar desfases
+                    clockOffset = Date.now() - (data.server_now || Date.now());
+                    appState = data;
+                    initialDataPromise = null;
+                    syncHeatStructure();
+                    return data;
+                })
+                .catch(err => {
+                    console.error("Error al cargar datos iniciales:", err);
+                    initialDataPromise = null;
+                    throw err;
+                });
+            return initialDataPromise;
         }
 
         // Escuchar cambios de eventos vía SSE (START, LAP, PRESTOP, etc.)
@@ -342,15 +354,15 @@
                 eventSource = new EventSource(`${apiBase}/api/events`);
 
                 eventSource.onopen = () => {
-                    console.log("SSE conectado a:", `${apiBase}/api/events`);
-                    loadInitialData();
+                    if (!appState || !appState.sessions || !appState.attempts || appState.attempts.length === 0) {
+                        loadInitialData();
+                    }
                 };
 
                 eventSource.onmessage = async (e) => {
-                    if (e.data === 'update' || !e.data || e.data === 'connected') {
+                    if (e.data === 'update') {
                         try {
-                            const apiBase = getApiBaseUrl();
-                            const res = await fetch(`${apiBase}/api/all`);
+                            const res = await fetch(`${apiBase}/api/all`, { cache: 'no-store' });
                             if (res.ok) {
                                 const data = await res.json();
                                 clockOffset = Date.now() - (data.server_now || Date.now());
@@ -647,7 +659,7 @@
         // HANDLERS DEL CICLO DE VIDA DE SPX
         // =========================================================
 
-        function runTemplateUpdate() {
+        async function runTemplateUpdate() {
             // Resetear toggle de columnas al disparar un nuevo Play
             _toggleColumnsExpanded = false;
 
@@ -658,6 +670,7 @@
 
             // Aplicar configuración de posición y tamaño
             applyLayoutConfig();
+            await loadInitialData();
 
             // Asegurar conexión y ticker activos
             if (!eventSource) {
@@ -665,15 +678,28 @@
             }
             startLiveTicker();
 
-            // Ejecutar animación de entrada inmediatamente sin retrasos
-            runAnimationIN();
+            // Si ya está en pantalla, actualizar estructura suavemente sin reiniciar animación
+            if (isOverlayVisible && !isAnimatingIn) {
+                syncHeatStructure();
+            }
         }
 
-        function runAnimationIN() {
+        async function runAnimationIN() {
+            if (isAnimatingIn) return;
+
+            if (!appState || !appState.sessions || !appState.attempts || appState.attempts.length === 0) {
+                try {
+                    await loadInitialData();
+                } catch (_) {}
+            }
+
             isOverlayVisible = true;
+            isAnimatingIn = true;
+            if (window.spxSetState) window.spxSetState('PLAYING');
 
             // Detener cualquier animación previa
             anime.remove(['#gfx', '.apnea-header', '.apnea-row', '.apnea-footer']);
+            syncHeatStructure();
 
             // Reset inicial rápido
             anime.set('#gfx', { opacity: 0, scale: 0.96 });
@@ -683,7 +709,15 @@
 
             // Timeline principal de entrada con Anime.js (rápido y fluido: 320ms)
             var tl = anime.timeline({
-                easing: 'easeOutCubic'
+                easing: 'easeOutCubic',
+                complete: function() {
+                    isAnimatingIn = false;
+                    anime.set('#gfx', { opacity: 1, scale: 1 });
+                    anime.set('.apnea-header', { opacity: 1, translateY: 0 });
+                    anime.set('.apnea-row', { opacity: 1, translateX: 0 });
+                    anime.set('.apnea-footer', { opacity: 1, translateY: 0 });
+                    if (window.spxSetState) window.spxSetState('PLAYING');
+                }
             });
 
             tl.add({
@@ -715,6 +749,8 @@
 
         function runAnimationOUT() {
             isOverlayVisible = false;
+            isAnimatingIn = false;
+            if (window.spxSetState) window.spxSetState('STOPPING');
 
             // Detener cualquier animación previa
             anime.remove(['#gfx', '.apnea-header', '.apnea-row', '.apnea-footer']);
@@ -725,6 +761,7 @@
                 duration: 200,
                 complete: function() {
                     anime.set('#gfx', { opacity: 0, scale: 0.96 });
+                    if (window.spxSetState) window.spxSetState('STOPPED');
                 }
             });
 

@@ -542,20 +542,33 @@
             }
         }
 
-        // Cargar estado inicial desde API
-        async function loadInitialData() {
-            try {
-                const apiBase = getApiBaseUrl();
-                const res = await fetch(`${apiBase}/api/all`, { cache: 'no-store' });
-                if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
-                const data = await res.json();
+        // Cargar estado inicial desde API con deduplicación
+        let initialDataPromise = null;
+        let isAnimatingIn = false;
 
-                clockOffset = Date.now() - (data.server_now || Date.now());
-                appState = data;
-                tickOfficialTimer();
-            } catch (err) {
-                console.error("Error cargando datos oficiales:", err);
+        function loadInitialData(force = false) {
+            if (initialDataPromise && !force) {
+                return initialDataPromise;
             }
+            const apiBase = getApiBaseUrl();
+            initialDataPromise = fetch(`${apiBase}/api/all`, { cache: 'no-store' })
+                .then(res => {
+                    if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+                    return res.json();
+                })
+                .then(data => {
+                    clockOffset = Date.now() - (data.server_now || Date.now());
+                    appState = data;
+                    initialDataPromise = null;
+                    tickOfficialTimer();
+                    return data;
+                })
+                .catch(err => {
+                    console.error("Error cargando datos oficiales:", err);
+                    initialDataPromise = null;
+                    throw err;
+                });
+            return initialDataPromise;
         }
 
         // Conectar SSE para streaming de eventos en vivo
@@ -569,11 +582,13 @@
                 eventSource = new EventSource(`${apiBase}/api/events`);
 
                 eventSource.onopen = () => {
-                    loadInitialData();
+                    if (!appState || (!appState.sessions && !appState.heats) || !appState.attempts || appState.attempts.length === 0) {
+                        loadInitialData();
+                    }
                 };
 
                 eventSource.onmessage = async (e) => {
-                    if (e.data === 'update' || !e.data || e.data === 'connected') {
+                    if (e.data === 'update') {
                         try {
                             const res = await fetch(`${apiBase}/api/all`, { cache: 'no-store' });
                             if (res.ok) {
@@ -617,11 +632,22 @@
             }
 
             startTimerTicker();
-            runAnimationIN();
+
+            if (isOverlayVisible && !isAnimatingIn) {
+                tickOfficialTimer();
+            }
         }
 
         // Animación de entrada: Fade-in suave
-        function runAnimationIN() {
+        async function runAnimationIN() {
+            if (isAnimatingIn) return;
+
+            if (!appState || (!appState.sessions && !appState.heats) || !appState.attempts || appState.attempts.length === 0) {
+                try {
+                    await loadInitialData();
+                } catch (_) {}
+            }
+
             if (isTimeExpired()) {
                 isOverlayVisible = false;
                 anime.remove('#gfx');
@@ -631,6 +657,7 @@
             }
 
             isOverlayVisible = true;
+            isAnimatingIn = true;
             isAutoDismissTriggered = false;
             if (window.spxSetState) window.spxSetState('PLAYING');
 
@@ -649,6 +676,7 @@
                 duration: 350,
                 easing: 'easeOutCubic',
                 complete: function() {
+                    isAnimatingIn = false;
                     anime.set('#gfx', { opacity: 1, scale: 1 });
                     if (window.spxSetState) window.spxSetState('PLAYING');
                 }
@@ -658,6 +686,7 @@
         // Animación de salida: Fade-out suave
         function runAnimationOUT() {
             stopTimerTicker();
+            isAnimatingIn = false;
 
             if (!isOverlayVisible) {
                 if (window.spxSetState) window.spxSetState('STOPPED');

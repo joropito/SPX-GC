@@ -536,20 +536,33 @@
             }
         }
 
-        // Cargar estado inicial desde API
-        async function loadInitialData() {
-            try {
-                const apiBase = getApiBaseUrl();
-                const res = await fetch(`${apiBase}/api/all`);
-                if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
-                const data = await res.json();
+        // Cargar estado inicial desde API con deduplicación de promesas en vuelo
+        let initialDataPromise = null;
+        let isAnimatingIn = false;
 
-                clockOffset = Date.now() - (data.server_now || Date.now());
-                appState = data;
-                renderFocusedAthlete();
-            } catch (err) {
-                console.error("Error cargando datos iniciales ATHLETE_FOCUS:", err);
+        function loadInitialData(force = false) {
+            if (initialDataPromise && !force) {
+                return initialDataPromise;
             }
+            const apiBase = getApiBaseUrl();
+            initialDataPromise = fetch(`${apiBase}/api/all`, { cache: 'no-store' })
+                .then(res => {
+                    if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+                    return res.json();
+                })
+                .then(data => {
+                    clockOffset = Date.now() - (data.server_now || Date.now());
+                    appState = data;
+                    initialDataPromise = null;
+                    renderFocusedAthlete();
+                    return data;
+                })
+                .catch(err => {
+                    console.error("Error cargando datos iniciales ATHLETE_FOCUS:", err);
+                    initialDataPromise = null;
+                    throw err;
+                });
+            return initialDataPromise;
         }
 
         // Conectar SSE para streaming en vivo
@@ -563,14 +576,16 @@
                 eventSource = new EventSource(`${apiBase}/api/events`);
 
                 eventSource.onopen = () => {
-                    loadInitialData();
+                    if (!appState || !appState.attempts || appState.attempts.length === 0) {
+                        loadInitialData();
+                    }
                 };
 
                 eventSource.onmessage = async (e) => {
-                    if (e.data === 'update' || !e.data || e.data === 'connected') {
+                    if (e.data === 'update') {
                         try {
                             const apiBase = getApiBaseUrl();
-                            const res = await fetch(`${apiBase}/api/all`);
+                            const res = await fetch(`${apiBase}/api/all`, { cache: 'no-store' });
                             if (res.ok) {
                                 const data = await res.json();
                                 clockOffset = Date.now() - (data.server_now || Date.now());
@@ -612,20 +627,30 @@
 
             startLiveTicker();
 
-            const data = getFocusedAthleteData();
-            if (hasValidAthleteData(data)) {
-                runAnimationIN();
-            } else {
-                isOverlayVisible = false;
-                const gfxEl = e('gfx');
-                if (gfxEl) {
-                    anime.set(gfxEl, { opacity: 0, scaleX: 0 });
+            if (isOverlayVisible && !isAnimatingIn) {
+                const data = getFocusedAthleteData();
+                if (hasValidAthleteData(data)) {
+                    renderFocusedAthlete();
+                } else {
+                    isOverlayVisible = false;
+                    const gfxEl = e('gfx');
+                    if (gfxEl) {
+                        anime.set(gfxEl, { opacity: 0, scaleX: 0 });
+                    }
+                    if (window.spxSetState) window.spxSetState('STOPPED');
                 }
-                if (window.spxSetState) window.spxSetState('STOPPED');
             }
         }
 
-        function runAnimationIN() {
+        async function runAnimationIN() {
+            if (isAnimatingIn) return;
+
+            if (!appState || !appState.attempts || appState.attempts.length === 0) {
+                try {
+                    await loadInitialData();
+                } catch (_) {}
+            }
+
             const data = getFocusedAthleteData();
             if (!hasValidAthleteData(data)) {
                 // Lane vacío / sin datos de atleta: nunca mostrar nada
@@ -639,6 +664,7 @@
             }
 
             isOverlayVisible = true;
+            isAnimatingIn = true;
             if (window.spxSetState) window.spxSetState('PLAYING');
 
             anime.remove(['#gfx', '#focusContent']);
@@ -663,6 +689,7 @@
             var tl = anime.timeline({
                 easing: 'easeOutCubic',
                 complete: function() {
+                    isAnimatingIn = false;
                     anime.set('#gfx', { opacity: 1, scaleX: 1 });
                     anime.set('#focusContent', { opacity: 1, translateX: 0 });
                     if (window.spxSetState) window.spxSetState('PLAYING');
@@ -689,6 +716,7 @@
 
         function runAnimationOUT() {
             isOverlayVisible = false;
+            isAnimatingIn = false;
             if (window.spxSetState) window.spxSetState('STOPPING');
 
             anime.remove(['#gfx', '#focusContent']);
