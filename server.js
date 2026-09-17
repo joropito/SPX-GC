@@ -915,7 +915,12 @@ var server = app.listen(port, (err) => {
 
 });
 
-global.io = require('socket.io')(server);
+global.io = require('socket.io')(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 var clients = {}
 
 io.sockets.on('connection', function (socket) {
@@ -924,9 +929,9 @@ io.sockets.on('connection', function (socket) {
   notifyMultipleControllers(); // on Connection
 
   socket.on('disconnect', async function () {
-    let SPXClientName = clients[socket.id].SPXClientName || '** no name **';
-    logger.verbose('*** Socket disconnected (' + socket.id + ") Connections: " + io.engine.clientsCount);
+    let SPXClientName = (clients[socket.id] && clients[socket.id].SPXClientName) ? clients[socket.id].SPXClientName : '** no name **';
     delete clients[socket.id];
+    logger.verbose('*** Socket disconnected (' + socket.id + ") Connections: " + (io.engine ? io.engine.clientsCount : 0));
 
     // Notify controller of other clients lost (such as renderers closed with X)
     data = {};
@@ -977,7 +982,7 @@ function notifyMultipleControllers() {
   setTimeout(function(){ 
     let count = 0;
     for (const [key, value] of Object.entries(clients)) {
-      if (value.SPXClientName == 'SPX_CONTROLLER') {
+      if (value && value.SPXClientName == 'SPX_CONTROLLER') {
         count++;
       }
     }

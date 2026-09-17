@@ -703,7 +703,24 @@ router.get('/getprojects', spxAuth.CheckAPIKey, async (req, res) => {
 
 
 router.get('/allrundowns', spxAuth.CheckAPIKey, async (req, res) => {
-	res.status(501).json(notInSolo);
+	try {
+		let projects = await spx.GetSubfolders(config.general.dataroot);
+		let allData = [];
+		if (Array.isArray(projects)) {
+			for (const proj of projects) {
+				let dataFolder = path.join(config.general.dataroot, proj, 'data');
+				let rundowns = await spx.GetDataFiles(dataFolder);
+				allData.push({
+					project: proj,
+					rundowns: Array.isArray(rundowns) ? rundowns : []
+				});
+			}
+		}
+		res.status(200).json(allData);
+	} catch (error) {
+		logger.error('Error in /api/v1/allrundowns: ' + error);
+		res.status(500).json({ error: error.message });
+	}
 }); // end allrundowns
 
 

@@ -21,7 +21,18 @@
       "Some extract of vanilla, enough to feed Godzilla."
     -->
 
-    <script src="./js/socket.io.js"></script>
+    <script src="/js/socket.io.js"></script>
+    <script>
+        var url_string = window.location.href;
+        var url = new URL(url_string);
+        let TemplateRoot = "/templates/";
+        var GCserver = url.searchParams.get("gc") || undefined;
+        if (GCserver == undefined) {
+            var socket = io();
+        } else {
+            var socket = io(GCserver);
+        }
+    </script>
     <script src="/js/lib/dotlottie-player.js"></script>
     <script src="/js/spx_rendererUtils.js" type="module"></script> <!-- added in 1.3.3 RC-->
     <script src="/js/ograf_functions.js"></script>
@@ -149,8 +160,8 @@
             }
         }
 
-        function allowLayerControl(LayerNro) {
-            let playMode = incomingData.playmode || 'notFoundSoMustBeProgramCommand' ;
+        function allowLayerControl(LayerNro, cmdData = null) {
+            let playMode = (cmdData && cmdData.playmode) ? cmdData.playmode : ((incomingData && incomingData.playmode) ? incomingData.playmode : 'notFoundSoMustBeProgramCommand');
             if ( isPreviewMode() && playMode != 'preview') {
                 return false;
             }
@@ -164,25 +175,28 @@
             const limitLayers   = urlParams.get('layers');
             LayerNro = Math.min(parseInt(LayerNro), 5); 
             if (limitLayers) {
-                let allowedLayers = JSON.parse(limitLayers);
-                if ( allowedLayers.includes(LayerNro) ) {
+                try {
+                    let allowedLayers = JSON.parse(limitLayers);
+                    if ( allowedLayers.includes(LayerNro) ) {
+                        return true;
+                    } else {
+                        console.log('Layer ' + LayerNro + ' blocked, allows ', allowedLayers);
+                        return false;
+                    }
+                } catch(e) {
                     return true;
-                } else {
-                    console.log('Layer ' + LayerNro + ' blocked, allows ', allowedLayers);
-                    return false;
                 }
             } else {
                 return true
             }
         }
 
-        function validateLayerNro(LayerNro) {
-            if (!allowLayerControl(LayerNro)) { return false }
+        function validateLayerNro(LayerNro, cmdData = null) {
+            if (!allowLayerControl(LayerNro, cmdData)) { return false }
 
             if ( isPreviewMode() ) {
                 return 1
             } else {
-                // console.log('Validating LayerNro ' + LayerNro); // debug
                 return Math.min(parseInt(LayerNro),5);
             }
         }
@@ -199,11 +213,7 @@
         }
 
         function isLocalRenderer() {
-            if (this.name == 'LOCAL') {
-                return true
-            } else {
-                return false
-            }
+            return (window.name === 'LOCAL');
         }
 
         function clearLayer(LayerNro){
@@ -309,10 +319,10 @@
             document.getElementById(iframe).contentWindow.echo(arg);
         }
 
-        function populateLayer(LayerNro,TemplateFileRef='', forced=false) {
-            let projectFormat = incomingData.projectFormat || 'SPX'; // default value
+        function populateLayer(LayerNro, TemplateFileRef='', forced=false, cmdData=null) {
+            let projectFormat = (cmdData && cmdData.projectFormat) || (incomingData && incomingData.projectFormat) || 'SPX';
             if (!forced) {
-                LayerNro = validateLayerNro(LayerNro);
+                LayerNro = validateLayerNro(LayerNro, cmdData);
                 if (!LayerNro) { return }
             }
             let renderTarget = setTarget(LayerNro, projectFormat);
@@ -334,22 +344,22 @@
             document.getElementById(renderTarget).src=templa + "?random=" + ranNro + customParams;
         }
 
-        function playLayer(LayerNro,fieldData, projectFormat = 'SPX', incomingData) {
-            LayerNro = validateLayerNro(LayerNro);
+        function playLayer(LayerNro, fieldData, projectFormat = 'SPX', cmdData=null) {
+            LayerNro = validateLayerNro(LayerNro, cmdData);
             if (!LayerNro) { return }
             let renderTarget = setTarget(LayerNro, projectFormat)
             let formattedJSON = formatJSONAndSetDomFields(fieldData, renderTarget);
-            let manifestPath = incomingData.relpath;
+            let manifestPath = (cmdData && cmdData.relpath) || (incomingData && incomingData.relpath);
             if (projectFormat === "OGRAF") {
-                loadTheGraphic("/templates" + manifestPath, renderTarget, incomingData);
+                loadTheGraphic("/templates" + manifestPath, renderTarget, cmdData);
             } else {
                 document.getElementById(renderTarget).contentWindow?.update(formattedJSON);
                 document.getElementById(renderTarget).contentWindow?.play();
             }
         }
 
-        async function updateLayer(LayerNro,fieldData, projectFormat = "SPX") {
-            LayerNro = validateLayerNro(LayerNro);
+        async function updateLayer(LayerNro, fieldData, projectFormat = "SPX", cmdData=null) {
+            LayerNro = validateLayerNro(LayerNro, cmdData);
             if (!LayerNro) { return }
             let renderTarget = setTarget(LayerNro, projectFormat)
             let formattedJSON = formatJSONAndSetDomFields(fieldData, renderTarget);
@@ -374,27 +384,16 @@
             }
         }
 
-        function stopLayer(LayerNro, projectFormat = "SPX") {
-            if (!allowLayerControl(LayerNro)) return; // check layer param
-            LayerNro = validateLayerNro(LayerNro);
+        function stopLayer(LayerNro, projectFormat = "SPX", cmdData=null) {
+            if (!allowLayerControl(LayerNro, cmdData)) return; // check layer param
+            LayerNro = validateLayerNro(LayerNro, cmdData);
+            if (!LayerNro) { return }
             let renderTarget = setTarget(LayerNro, projectFormat)
             if (projectFormat === "OGRAF") {
                 graphicInstances[renderTarget]?.stopAction({})
             } else {
                 document.getElementById(renderTarget).contentWindow?.stop();
             }
-        }
-
-        var url_string = window.location.href;
-        var url = new URL(url_string);
-        let TemplateRoot;
-        var GCserver = url.searchParams.get("gc") || undefined;
-        if (GCserver==undefined) {
-            TemplateRoot = "/templates/";
-            var socket = io();
-        } else {
-            TemplateRoot = "templates/";
-            var socket = io(GCserver);
         }
 
         socket.on('connect', function () {
@@ -450,7 +449,7 @@
                     break;
 
                 case 'loadTemplate':
-                    populateLayer(data.webplayout,data.relpath);
+                    populateLayer(data.webplayout, data.relpath, false, data);
                     break;
 
                 case 'forceWM':
@@ -458,29 +457,32 @@
                     break;
 
                 case 'playTemplate':
-                projectFormat = incomingData.projectFormat || 'SPX';
-                    if (data.modify && data.modify==='autoPlayLocal' ) {
+                    let playData = Object.assign({}, data);
+                    projectFormat = playData.projectFormat || 'SPX';
+                    if (playData.modify && playData.modify==='autoPlayLocal' ) {
                         if (!isLocalRenderer()) {
                             return;
                         }
                     }
 
-                    LayerNro = validateLayerNro(data.webplayout);
+                    LayerNro = validateLayerNro(playData.webplayout, playData);
                     if (!LayerNro) { return }
                     if (projectFormat === "OGRAF") {
-                        playLayer(LayerNro, data.fields, projectFormat, incomingData);
-                    }else {
+                        playLayer(LayerNro, playData.fields, projectFormat, playData);
+                    } else {
                         document.getElementById('layer' + LayerNro).onload = function() {
-                            playLayer(LayerNro, data.fields, projectFormat, incomingData);
+                            this.onload = null;
+                            playLayer(LayerNro, playData.fields, projectFormat, playData);
                         };
                     }
 
-                    populateLayer(data.webplayout,data.relpath);
+                    populateLayer(playData.webplayout, playData.relpath, false, playData);
                     break;
 
                 case 'nextTemplate':
-                    projectFormat = incomingData.projectFormat || 'SPX';
-                    LayerNro = validateLayerNro(data.webplayout);
+                    let nextData = Object.assign({}, data);
+                    projectFormat = nextData.projectFormat || 'SPX';
+                    LayerNro = validateLayerNro(nextData.webplayout, nextData);
                     let renderTarget = setTarget(LayerNro, projectFormat);
                     if (!LayerNro) { return }
                     if (projectFormat === "OGRAF") {
@@ -491,21 +493,24 @@
                     break;
 
                 case 'updateTemplate':
-                    projectFormat = incomingData.projectFormat || 'OGRAF'; // default value
-                    LayerNro = validateLayerNro(data.webplayout);
-                    setTimeout(function(){ updateLayer(data.webplayout, data.fields, projectFormat); }, 10);
+                    let updateData = Object.assign({}, data);
+                    projectFormat = updateData.projectFormat || 'OGRAF'; // default value
+                    LayerNro = validateLayerNro(updateData.webplayout, updateData);
+                    setTimeout(function(){ updateLayer(updateData.webplayout, updateData.fields, projectFormat, updateData); }, 10);
                     break;
 
                 case 'stopTemplate':
-                    projectFormat = incomingData.projectFormat || 'SPX'; // default value
-                    LayerNro = validateLayerNro(data.webplayout);
+                    let stopData = Object.assign({}, data);
+                    projectFormat = stopData.projectFormat || 'SPX'; // default value
+                    LayerNro = validateLayerNro(stopData.webplayout, stopData);
                     if (!LayerNro) { return }
-                    stopLayer(LayerNro, projectFormat);
+                    stopLayer(LayerNro, projectFormat, stopData);
                     break;
 
                 case 'customAction':
-                    LayerNro = validateLayerNro(data.webplayout)
-                    graphicInstances['div' + LayerNro].customAction({id: incomingData.id})
+                    LayerNro = validateLayerNro(data.webplayout, data);
+                    graphicInstances['div' + LayerNro].customAction({id: data.id});
+                    break;
 
 
                 case 'invokeFunction':

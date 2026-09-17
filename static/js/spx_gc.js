@@ -92,20 +92,21 @@ socket.on('SPXMessage2Client', function (data) {
             switch (data.clientName) {
                 case 'SPX_PROGRAM':
                     if (document.getElementById('toggleRendererWindowProgram')) {
-                        console.log('SPX_PROGRAM client lost, toggling off');
+                        console.log('SPX_PROGRAM client lost');
                         document.getElementById('toggleRendererWindowProgram').checked = false;
-                    } else {
-                        console.log('SPX_PROGRAM client lost, no toggle found');
+                        if (document.getElementById('toggle1')) {
+                            document.getElementById('toggle1').innerText = 'OFF';
+                        }
                     }
-                    toggleNormalRenderer('normal');
                     break;
 
                 case 'SPX_PREVIEW':
                     if ( document.getElementById('toggleRendererWindowPreview') ) {
-                        console.log('SPX_PREVIEW client lost, toggling off');
+                        console.log('SPX_PREVIEW client lost');
                         document.getElementById('toggleRendererWindowPreview').checked = false;
-                    } else {
-                        console.log('SPX_PREVIEW client lost, no toggle found');
+                        if (document.getElementById('toggle2')) {
+                            document.getElementById('toggle2').innerText = 'OFF';
+                        }
                     }
                     break;
             
@@ -459,12 +460,13 @@ function AppState(NewState) {
     // console.log('Old state: ' + APPSTATE, 'New state: ' + NewState);
 
     // disable sorting while editing:
+    let ident = ife('identifier') ? ife('identifier').value : '';
     if (NewState == 'EDITING') {
-        if ( ife('identifier').value=="controller" ) {
+        if ( (ident=="controller" || ident=="controllermini") && typeof sortable !== 'undefined' && sortable ) {
             sortable.option("disabled", true);  
         }
     } else {
-        if ( ife('identifier').value=="controller" ) {
+        if ( (ident=="controller" || ident=="controllermini") && typeof sortable !== 'undefined' && sortable ) {
             sortable.option("disabled", false);
         }
     }
@@ -2262,14 +2264,17 @@ function showItemIDs(show=true) {
     // Show item ID's in GUI
     let rows = document.querySelectorAll('.itemrow');
     rows.forEach((item,index) => {
-        if (show==true) {
-            item.querySelector('.utilityOverlay').classList.remove('hidden');
-            // document.getElementById('rundownInfoMessage').style='display:flex;';
-        } else if (show==false) {
-            item.querySelector('.utilityOverlay').classList.add('hidden');
-            // document.getElementById('rundownInfoMessage').style='display:none;';
-        } else {
-            item.querySelector('.utilityOverlay').classList.toggle('hidden');
+        let overlay = item.querySelector('.utilityOverlay');
+        if (overlay) {
+            if (show==true) {
+                overlay.classList.remove('hidden');
+                // document.getElementById('rundownInfoMessage').style='display:flex;';
+            } else if (show==false) {
+                overlay.classList.add('hidden');
+                // document.getElementById('rundownInfoMessage').style='display:none;';
+            } else {
+                overlay.classList.toggle('hidden');
+            }
         }
     });
 } // showItemIDs ended
@@ -2492,16 +2497,20 @@ function spxInit() {
     // - init Sortable
 
     // Init sortable and saveData onEnd
-    if ( ife('identifier').value=="controller" ) {
-        sortable = Sortable.create(itemList, {
-            handle: '.handle',
-            animation: 150,
-            disabled: false,
-            // sortable.option("disabled", true); // TAI false
-            onEnd: function (evt) {
-                SaveNewSortOrder();
-            },
-        });
+    let ident = ife('identifier') ? ife('identifier').value : '';
+    if ( ident=="controller" || ident=="controllermini" ) {
+        let sortContainer = document.getElementById('rundownElements') || document.getElementById('itemList');
+        if (typeof Sortable !== 'undefined' && sortContainer) {
+            sortable = Sortable.create(sortContainer, {
+                handle: '.handle',
+                animation: 150,
+                disabled: false,
+                // sortable.option("disabled", true); // TAI false
+                onEnd: function (evt) {
+                    SaveNewSortOrder();
+                },
+            });
+        }
     }
 
     focusRow(0);

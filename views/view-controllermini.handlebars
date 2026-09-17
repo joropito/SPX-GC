@@ -9,7 +9,7 @@
 
   <script src="/js/axios.min.js"></script>
   <script src="/js/fontawesome.all.min.js"></script>
-  <!-- <script src="/js/Sortable.min.js"></script> Not in LIGHT -->
+  <script src="/js/Sortable.min.js"></script>
   <script src="/js/socket.io.js"></script>
   <script src="/js/vanilla-js-tooltip.js"></script>
   <!-- <script src="/js/spx_controllerImportFunctions.js"></script> -->
@@ -26,6 +26,7 @@
         if ( btn.classList.contains("toggled")) {
           document.getElementById("previewBG").style.display = "block";
           document.getElementById("previewIF").src = "/renderer?preview=true";
+          resizePreview();
         } else {
           document.getElementById("previewBG").style.display = "none";
           document.getElementById("previewIF").src = "/templates/empty.html";
@@ -34,7 +35,7 @@
 
       if (btn.id == "btnRun") {
         if ( btn.classList.contains("toggled")) {
-          document.getElementById("rundownElements").style.display = "block";
+          document.getElementById("rundownElements").style.display = "grid";
         } else {
           document.getElementById("rundownElements").style.display = "none";
         }
@@ -52,6 +53,11 @@
     function loadRundown(element) {
       let rundown = element.value;
       let url = "/gc/" + rundown + "/light";
+      window.location.href = url;
+    }
+
+    function loadController() {
+      let url = window.location.href.replace('/light', '');
       window.location.href = url;
     }
 
@@ -145,7 +151,13 @@
 
     #controllerPluginButtons {
       display: none;
-      padding: 1em;
+      padding: 0.8em 1em;
+      max-width: 550px;
+      margin: 0.5em auto;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.15);
+      border-radius: 6px;
+      box-sizing: border-box;
     }
 
     select option:disabled {
@@ -165,14 +177,23 @@
       margin-left: 1em !important;
     }
 
-    option.optionEmpty  {
-      {{!-- user-select: none;
-      color: #00f !important; --}}
+    #rundownElements {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+      align-items: start;
+      width: 100%;
     }
 
+    @media (max-width: 700px) {
+      #rundownElements {
+        grid-template-columns: 1fr;
+      }
+    }
 
-
-
+    #rundownElements .itemrow {
+      margin-bottom: 0;
+    }
 
   </style>
 </head>
@@ -188,6 +209,7 @@
   <input type="hidden" id="previewMode" value="{{previewMode}}">      <!-- previewMode (next/selected) -->
   <input type="hidden" id="assetsroot" value="{{assetsFolder}}">      <!-- used by file browser -->
   <input type="hidden" id="templaterootmassage" value="{{lang 'error.preventBrowseUp'}}">
+  <input type="hidden" id="identifier" value="controllermini">        <!-- used by JS logic to identify view -->
 
   <div id="messageSlider" style="opacity:0;"></div>
 
@@ -198,7 +220,7 @@
       <img src="/img/spx_offline.png" style="position: absolute; display:none;" id="logo_off">
       <img src="/img/spx_online.png"  style="position: absolute; display:none;" id="logo_on">
 
-      <a href="" onClick="loadController">
+      <a href="#" onClick="loadController(); return false;" title="Return to standard controller">
         <img src="/img/spx_online.png" id="logo">
       </a>
 
@@ -210,20 +232,19 @@
     </div>
 
     <div class="viewer">
-      <HR id="previewWidthRuler"> <!-- ===========================================================  -->
       <div id="previewBG"
         style="background-color: rgb(0, 0, 0);
-              width:100%;
-              height:27%;
               overflow: hidden;
               display: block;
-              opacity:1.0;">
+              opacity: 1.0;
+              margin: 0 auto;">
         <iframe
-          width="{{{localPreviewSize width}}}" 
-          height="{{{localPreviewSize height}}}"
+          width="1920" 
+          height="1080"
           id="previewIF"
           src="/renderer?preview=true"
           class="rendererMini"
+          style="transform-origin: top left; border: 0;"
         ></iframe>
       </div>
     </div><!-- viewer -->
@@ -735,33 +756,41 @@
       let projects = fetch('/api/v1/allrundowns')
         .then(response => response.json())
         .then(projects => {
-          document.getElementById('rundownSelector').innerHTML = '';
-          projects.forEach(function(project, index) {
-            let option = document.createElement('option');
-            option.value = project.project;
-            option.innerHTML = project.project;
-            option.disabled = true;
-            option.classList.add("optionProject");
-            document.getElementById('rundownSelector').appendChild(option);
-            project.rundowns.forEach(function(rundown, index) {
-              let rd = document.createElement('option');
+          if (Array.isArray(projects)) {
+            let selector = document.getElementById('rundownSelector');
+            if (selector) {
+              selector.innerHTML = '';
+              projects.forEach(function(project, index) {
+                let option = document.createElement('option');
+                option.value = project.project;
+                option.innerHTML = project.project;
+                option.disabled = true;
+                option.classList.add("optionProject");
+                selector.appendChild(option);
+                project.rundowns.forEach(function(rundown, index) {
+                  let rd = document.createElement('option');
 
-              let CurrentRD = '{{folder}}/{{filebasename}}';
-              if (CurrentRD == project.project + '/' + rundown) {
-                rd.selected = true;
-              }
-              rd.value = project.project + '/' + rundown;
-              rd.innerHTML = "&nbsp; " + rundown;
-              rd.classList.add("optionRundown");
-              document.getElementById('rundownSelector').appendChild(rd);
-            });
-            let empty = document.createElement('option');
-            empty.value = "none";
-            empty.innerHTML = '';
-            empty.disabled = true;
-            empty.classList.add("optionEmpty");
-            document.getElementById('rundownSelector').appendChild(empty);
-          });
+                  let CurrentRD = '{{folder}}/{{filebasename}}';
+                  if (CurrentRD == project.project + '/' + rundown) {
+                    rd.selected = true;
+                  }
+                  rd.value = project.project + '/' + rundown;
+                  rd.innerHTML = "&nbsp; " + rundown;
+                  rd.classList.add("optionRundown");
+                  selector.appendChild(rd);
+                });
+                let empty = document.createElement('option');
+                empty.value = "none";
+                empty.innerHTML = '';
+                empty.disabled = true;
+                empty.classList.add("optionEmpty");
+                selector.appendChild(empty);
+              });
+            }
+          }
+        })
+        .catch(err => {
+          console.warn('Could not populate rundown list in mini view', err);
         });
       
       resizePreview();
@@ -771,36 +800,35 @@
     }
 
     function resizePreview() {
+      let previewBG = document.getElementById('previewBG');
+      let previewIF = document.getElementById('previewIF');
+      if (!previewBG || !previewIF) return;
+
+      let wrapper = document.querySelector('.wrapper');
+      let containerW = wrapper && wrapper.offsetWidth > 0 ? wrapper.offsetWidth : window.innerWidth;
       
-      // let DefaultX = 1920 // LightMode HD by default;
-      // let DefaultY = 1080 // 
-      // let Wpx = document.getElementById('previewWidthRuler').offsetWidth;
-      // let Sca = Wpx/DefaultX;
-      // let Hpx = parseInt(DefaultY * Sca);
-      // document.getElementById('previewBG').style.width=Wpx+'px';
-      // document.getElementById('previewBG').style.height=Hpx+'px';
-      // document.getElementById('previewIF').style.transform="scale("+Sca+")";
-      // Controller preview resize
+      // Keep the preview at a clean proportion (~25% of viewport height, max 230px)
+      let maxH = Math.min(window.innerHeight * 0.25, 230);
+      if (maxH < 120) maxH = 120;
 
-      let DefaultX = '{{width}}'; // 1920 by default;
-      let DefaultY = '{{height}}'; // 1080 by default;
-
-      if (DefaultX.includes('vw')) {
-          // Responsive settings, use window size! Added in v1.3.0
-          // console.log('Responsive settings, but forcing 16:9 in Controller');
-          DefaultX = '1920px';
-          DefaultY = '1080px';
+      let Sca = maxH / 1080;
+      if (1920 * Sca > containerW * 0.95) {
+        Sca = (containerW * 0.95) / 1920;
       }
 
-      let Wpx = document.getElementById('previewWidthRuler').offsetWidth;
-      let Sca = Wpx/parseInt(DefaultX);
-      let Hpx = parseInt(parseInt(DefaultY) * Sca);
-      document.getElementById('previewBG').style.width=Wpx+'px';
-      document.getElementById('previewBG').style.height=Hpx+'px';
-      document.getElementById('previewIF').style.transform="scale("+Sca+")";
-      document.getElementById('previewBG').style.opacity=1;
-      // document.getElementById('controllerFunctionsZone').style.opacity=1;
-      // console.log('Resized to ' + Wpx + ' x ' + Hpx + ' px, scale multiplier: ' + Sca);
+      let Wpx = Math.round(1920 * Sca);
+      let Hpx = Math.round(1080 * Sca);
+
+      previewBG.style.width = Wpx + 'px';
+      previewBG.style.height = Hpx + 'px';
+      previewBG.style.margin = '0.3em auto';
+      previewBG.style.display = 'block';
+      previewBG.style.opacity = '1';
+
+      previewIF.style.width = '1920px';
+      previewIF.style.height = '1080px';
+      previewIF.style.transform = 'scale(' + Sca + ')';
+      previewIF.style.transformOrigin = 'top left';
     }
 
     document.addEventListener('DOMContentLoaded', () => {

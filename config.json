@@ -11,19 +11,17 @@
     "port": "5656",
     "dataroot": "/opt/SPX-GC-v.1.4.1/DATAROOT/",
     "preview": "selected",
-    "autoplayLocalRenderer": true,
+    "autoplayLocalRenderer": "true",
     "resolution": "AUTO",
     "recents": [
       "Bajau50/Bajau50",
       "Bajau50/Test"
-    ],
-    "renderer": "normal",
-    "disableLocalRenderer": false
+    ]
   },
   "globalExtras": {
     "customscript": ""
   },
   "warning": "Modifications done in the SPX will overwrite this file.",
   "copyright": "(c) 2020- SPX Graphics (https://spxgraphics.com)",
-  "updated": "2026-09-01T01:33:16.586Z"
+  "updated": "2026-09-08T02:45:55.978Z"
 }
